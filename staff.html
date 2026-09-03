@@ -5,86 +5,194 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>学食管理 - スタッフ画面</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- グラフ描画ライブラリ Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans min-h-screen flex flex-col">
 
-  <header class="bg-emerald-700 text-white p-4 flex justify-between items-center shadow-md">
-    <h1 class="font-bold text-lg">⚙️ 学食スタッフ管理画面（リアルタイム）</h1>
-    <button id="clearBtn" class="bg-emerald-900 hover:bg-emerald-950 text-xs px-3 py-1.5 rounded text-emerald-100">
-      全注文消去
+  <header class="bg-emerald-700 text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-40">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">⚙️</span>
+      <h1 class="font-bold text-lg md:text-xl">学食スタッフ管理画面（リアルタイム）</h1>
+    </div>
+    <button id="clearBtn" class="bg-emerald-900 hover:bg-emerald-950 text-xs px-3 py-1.5 rounded-lg text-emerald-100 transition border border-emerald-600">
+      全注文データ初期化
     </button>
   </header>
 
   <!-- タブナビゲーション -->
-  <div class="bg-white border-b shadow-sm">
-    <div class="max-w-4xl mx-auto flex">
-      <button id="tabOrdersBtn" onclick="switchTab('orders')" class="flex-1 py-3 text-center font-bold text-sm text-emerald-700 border-b-2 border-emerald-700 focus:outline-none">
+  <div class="bg-white border-b shadow-sm sticky top-[60px] z-30">
+    <div class="max-w-6xl mx-auto flex overflow-x-auto">
+      <button id="tabOrdersBtn" onclick="switchTab('orders')" class="flex-1 min-w-[120px] py-3 text-center font-bold text-sm text-emerald-700 border-b-2 border-emerald-700 focus:outline-none transition">
         📋 注文管理
       </button>
-      <button id="tabMenuBtn" onclick="switchTab('menu')" class="flex-1 py-3 text-center font-bold text-sm text-gray-500 border-b-2 border-transparent hover:text-emerald-700 focus:outline-none">
+      <button id="tabAnalyticsBtn" onclick="switchTab('analytics')" class="flex-1 min-w-[120px] py-3 text-center font-bold text-sm text-gray-500 border-b-2 border-transparent hover:text-emerald-700 focus:outline-none transition">
+        📊 売上ダッシュボード
+      </button>
+      <button id="tabMenuBtn" onclick="switchTab('menu')" class="flex-1 min-w-[120px] py-3 text-center font-bold text-sm text-gray-500 border-b-2 border-transparent hover:text-emerald-700 focus:outline-none transition">
         🍔 メニュー管理・価格変更
       </button>
-      <button id="tabAddBtn" onclick="switchTab('add')" class="flex-1 py-3 text-center font-bold text-sm text-gray-500 border-b-2 border-transparent hover:text-emerald-700 focus:outline-none">
+      <button id="tabAddBtn" onclick="switchTab('add')" class="flex-1 min-w-[120px] py-3 text-center font-bold text-sm text-gray-500 border-b-2 border-transparent hover:text-emerald-700 focus:outline-none transition">
         ➕ 新商品追加
       </button>
     </div>
   </div>
 
-  <main class="flex-1 max-w-4xl w-full mx-auto p-4">
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-6">
     
     <!-- タブ1: 注文管理 -->
     <div id="tabOrders" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <section class="bg-white p-4 rounded-xl border shadow-sm">
-        <h2 class="text-md font-bold mb-3 text-orange-600 flex justify-between">
+      <section class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-md font-bold text-orange-600 flex justify-between items-center border-b pb-2">
           <span>🍳 調理中</span>
-          <span id="countPreparing" class="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded-full">0</span>
+          <span id="countPreparing" class="bg-orange-100 text-orange-800 text-xs px-2.5 py-0.5 rounded-full font-bold">0</span>
         </h2>
         <div id="preparingList" class="space-y-3"></div>
       </section>
 
-      <section class="bg-white p-4 rounded-xl border shadow-sm">
-        <h2 class="text-md font-bold mb-3 text-green-600 flex justify-between">
+      <section class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-md font-bold text-green-600 flex justify-between items-center border-b pb-2">
           <span>🔔 呼び出し中</span>
-          <span id="countReady" class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">0</span>
+          <span id="countReady" class="bg-green-100 text-green-800 text-xs px-2.5 py-0.5 rounded-full font-bold">0</span>
         </h2>
         <div id="readyList" class="space-y-3"></div>
       </section>
     </div>
 
-    <!-- タブ2: メニュー管理（アイコン・価格変更・売り切れ・削除） -->
-    <div id="tabMenu" class="hidden bg-white p-6 rounded-xl border shadow-sm">
+    <!-- タブ2: 売上分析ダッシュボード & 編集 -->
+    <div id="tabAnalytics" class="hidden space-y-6">
+      <!-- 統計サマリーカード -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-2xl border shadow-sm">
+          <span class="text-xs text-gray-400 font-bold block">本日の売上</span>
+          <span id="statTodaySales" class="text-2xl font-black text-emerald-600">¥0</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border shadow-sm">
+          <span class="text-xs text-gray-400 font-bold block">本日の注文数</span>
+          <span id="statTodayCount" class="text-2xl font-black text-gray-800">0件</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border shadow-sm">
+          <span class="text-xs text-gray-400 font-bold block">今月の売上</span>
+          <span id="statMonthSales" class="text-2xl font-black text-emerald-700">¥0</span>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border shadow-sm">
+          <span class="text-xs text-gray-400 font-bold block">今月の注文数</span>
+          <span id="statMonthCount" class="text-2xl font-black text-gray-800">0件</span>
+        </div>
+      </div>
+
+      <!-- 売上推移グラフ & 商品別実績 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white p-5 rounded-2xl border shadow-sm space-y-3">
+          <h3 class="font-bold text-gray-800 text-sm">📈 直近7日間の売上推移</h3>
+          <div class="h-64 relative">
+            <canvas id="salesChart"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border shadow-sm space-y-3">
+          <h3 class="font-bold text-gray-800 text-sm">🍔 商品別売上実績 (当月累計)</h3>
+          <div class="overflow-y-auto max-h-64">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b text-gray-400">
+                  <th class="py-2">商品名</th>
+                  <th class="py-2 text-right">数量</th>
+                  <th class="py-2 text-right">売上高</th>
+                </tr>
+              </thead>
+              <tbody id="productStatsBody" class="divide-y"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 過去注文の編集・管理テーブル -->
+      <div class="bg-white p-5 rounded-2xl border shadow-sm space-y-3">
+        <h3 class="font-bold text-gray-800 text-sm">📝 注文履歴一覧 (完了・進行中) & 内容編集</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-gray-50 border-b text-gray-500">
+                <th class="p-3">日時</th>
+                <th class="p-3">番号</th>
+                <th class="p-3">注文者</th>
+                <th class="p-3">購入内容</th>
+                <th class="p-3">合計金額</th>
+                <th class="p-3">ステータス</th>
+                <th class="p-3 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody id="orderHistoryBody" class="divide-y"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- タブ3: メニュー管理 -->
+    <div id="tabMenu" class="hidden bg-white p-6 rounded-2xl border shadow-sm">
       <h2 class="text-md font-bold mb-4 text-gray-800">🍔 商品一覧・アイコン / 価格 / 状態設定</h2>
       <div id="menuList" class="space-y-3">
         <p class="text-xs text-gray-400 py-4 text-center">読み込み中...</p>
       </div>
     </div>
 
-    <!-- タブ3: 新商品追加 -->
-    <div id="tabAdd" class="hidden bg-white p-6 rounded-xl border shadow-sm max-w-md mx-auto">
+    <!-- タブ4: 新商品追加 -->
+    <div id="tabAdd" class="hidden bg-white p-6 rounded-2xl border shadow-sm max-w-md mx-auto">
       <h2 class="text-md font-bold mb-4 text-gray-800">➕ 新商品の追加</h2>
       <form id="addProductForm" class="space-y-4">
         <div>
           <label class="block text-xs font-bold text-gray-700 mb-1">アイコン（食べ物から選択）</label>
           <input type="hidden" id="newProductEmoji" value="🍱">
-          <div id="emojiPicker" class="grid grid-cols-8 gap-1.5 p-2 bg-gray-50 border rounded-lg">
-            <!-- JSで食べ物絵文字一覧を表示 -->
-          </div>
+          <div id="emojiPicker" class="grid grid-cols-8 gap-1.5 p-2 bg-gray-50 border rounded-xl"></div>
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-700 mb-1">商品名</label>
-          <input type="text" id="newProductName" required placeholder="例: 唐揚げ定食" class="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <input type="text" id="newProductName" required placeholder="例: 唐揚げ定食" class="w-full border rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-700 mb-1">金額 (円)</label>
-          <input type="number" id="newProductPrice" required min="0" placeholder="例: 500" class="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <input type="number" id="newProductPrice" required min="0" placeholder="例: 500" class="w-full border rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
         </div>
-        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg text-sm transition">
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow">
           商品を登録する
         </button>
       </form>
     </div>
 
   </main>
+
+  <!-- 注文編集ダイアログ (モーダル) -->
+  <div id="editModal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <h3 class="text-md font-bold text-gray-800 border-b pb-2">✏️ 注文内容の編集</h3>
+      <input type="hidden" id="editOrderId">
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-1">注文番号</label>
+        <input type="text" id="editOrderNumber" class="w-full border rounded-lg p-2 text-sm font-mono bg-gray-50">
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-1">生徒情報</label>
+        <input type="text" id="editStudentInfo" class="w-full border rounded-lg p-2 text-sm bg-gray-50">
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-1">ステータス</label>
+        <select id="editStatus" class="w-full border rounded-lg p-2 text-sm">
+          <option value="preparing">調理中</option>
+          <option value="ready">呼び出し中</option>
+          <option value="completed">提供完了</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-1">商品明細 (改行区切り: 商品名,価格)</label>
+        <textarea id="editItemsText" rows="4" class="w-full border rounded-lg p-2 text-xs font-mono" placeholder="唐揚げ定食,500&#10;緑茶,100"></textarea>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeEditModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold py-2.5 rounded-xl">キャンセル</button>
+        <button onclick="saveOrderEdit()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl shadow">保存する</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -103,35 +211,33 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 食べ物系絵文字リスト
     const FOOD_EMOJIS = ['🍱', '🍜', '🍛', '🍙', '🥪', '🍟', '🍔', '🥗', '🍝', '🍢', '🥟', '🍤', '🥐', '🍦', '🍩', '🧃'];
+    let salesChartInstance = null;
+    let cachedOrders = {};
 
-    // 新規登録用の絵文字ピッカー初期化
+    // 絵文字ピッカーの初期化
     const emojiPicker = document.getElementById('emojiPicker');
     const newProductEmojiInput = document.getElementById('newProductEmoji');
 
     FOOD_EMOJIS.forEach((e, idx) => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `p-2 text-xl rounded transition hover:bg-emerald-100 ${idx === 0 ? 'bg-emerald-200 ring-2 ring-emerald-500' : 'bg-white'}`;
+      btn.className = `p-2 text-xl rounded-lg transition hover:bg-emerald-100 ${idx === 0 ? 'bg-emerald-200 ring-2 ring-emerald-500' : 'bg-white'}`;
       btn.innerText = e;
       btn.onclick = () => {
         newProductEmojiInput.value = e;
-        Array.from(emojiPicker.children).forEach(child => {
-          child.className = 'p-2 text-xl rounded transition hover:bg-emerald-100 bg-white';
-        });
-        btn.className = 'p-2 text-xl rounded transition hover:bg-emerald-100 bg-emerald-200 ring-2 ring-emerald-500';
+        Array.from(emojiPicker.children).forEach(child => child.className = 'p-2 text-xl rounded-lg transition hover:bg-emerald-100 bg-white');
+        btn.className = 'p-2 text-xl rounded-lg transition hover:bg-emerald-100 bg-emerald-200 ring-2 ring-emerald-500';
       };
       emojiPicker.appendChild(btn);
     });
 
     // タブ切り替え
     window.switchTab = (tabName) => {
-      const tabs = ['orders', 'menu', 'add'];
+      const tabs = ['orders', 'analytics', 'menu', 'add'];
       tabs.forEach(t => {
         const content = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
         const btn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
-        
         if (t === tabName) {
           content.classList.remove('hidden');
           btn.classList.add('text-emerald-700', 'border-emerald-700');
@@ -142,6 +248,9 @@
           btn.classList.add('text-gray-500', 'border-transparent');
         }
       });
+      if (tabName === 'analytics') {
+        renderAnalytics(cachedOrders);
+      }
     };
 
     // 注文ステータス更新
@@ -149,28 +258,30 @@
       update(ref(db, `orders/${orderId}`), { status: newStatus });
     };
 
-    // 注文の個別取り消し（キャンセル）機能
+    // 注文取り消し
     window.cancelOrder = (orderId, orderNumber) => {
-      if (confirm(`注文番号 [${orderNumber}] を取り消しますか？\n（この操作は元に戻せません）`)) {
-        remove(ref(db, `orders/${orderId}`)).then(() => {
-          alert(`注文番号 [${orderNumber}] を取り消しました。`);
-        }).catch((error) => {
-          alert("取り消し処理に失敗しました: " + error.message);
-        });
+      if (confirm(`注文番号 [${orderNumber}] を削除・キャンセルしますか？`)) {
+        remove(ref(db, `orders/${orderId}`));
       }
     };
 
-    // 全注文の削除
+    // 全消去
     document.getElementById('clearBtn').addEventListener('click', () => {
-      if (confirm("すべての注文データを削除しますか？カウンターもリセットされます。")) {
+      if (confirm("すべての注文・売上データを初期化しますか？（この操作は元に戻せません）")) {
         remove(ref(db, 'orders'));
         remove(ref(db, 'orderCounter'));
       }
     });
 
-    // 注文リストリアルタイム表示
+    // リアルタイム注文データの監視
     onValue(ref(db, 'orders'), (snapshot) => {
-      const data = snapshot.val() || {};
+      cachedOrders = snapshot.val() || {};
+      renderOrders(cachedOrders);
+      renderAnalytics(cachedOrders);
+    });
+
+    // 注文一覧描画
+    function renderOrders(data) {
       const preparingContainer = document.getElementById('preparingList');
       const readyContainer = document.getElementById('readyList');
 
@@ -183,21 +294,20 @@
       document.getElementById('countPreparing').innerText = preparingOrders.length;
       document.getElementById('countReady').innerText = readyOrders.length;
 
-      // 調理中リストの表示
-      preparingContainer.innerHTML = preparingOrders.length === 0 ? '<p class="text-xs text-gray-400 py-4 text-center">調理待ちなし</p>' : 
+      preparingContainer.innerHTML = preparingOrders.length === 0 ? '<p class="text-xs text-gray-400 py-6 text-center">調理待ちの注文はありません</p>' : 
         preparingOrders.map(o => `
-          <div class="border-l-4 border-orange-500 bg-orange-50/50 p-3 rounded-r-lg border shadow-sm space-y-2">
+          <div class="border-l-4 border-orange-500 bg-orange-50/40 p-3.5 rounded-r-xl border shadow-sm space-y-2">
             <div class="flex justify-between items-center">
               <span class="text-2xl font-black text-gray-800">${o.orderNumber}</span>
-              <span class="bg-orange-200 text-orange-900 text-xs px-2 py-1 rounded font-bold">${o.studentInfo}</span>
+              <span class="bg-orange-100 text-orange-900 text-xs px-2.5 py-1 rounded-md font-bold">${o.studentInfo}</span>
             </div>
             <div class="flex justify-between items-center text-xs text-gray-600">
               <div>${(o.items || []).map(i => `<span>・${i.name} (¥${i.price})</span>`).join('')}</div>
               <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
             </div>
-            <div class="flex gap-2">
-              <button onclick="window.updateStatus('${o.id}', 'ready')" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition">
-                🔔 呼び出し通知を送る
+            <div class="flex gap-2 pt-1">
+              <button onclick="window.updateStatus('${o.id}', 'ready')" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition shadow">
+                🔔 呼び出し通知
               </button>
               <button onclick="window.cancelOrder('${o.id}', '${o.orderNumber}')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-2 rounded-lg text-xs transition">
                 🗑 キャンセル
@@ -206,20 +316,19 @@
           </div>
         `).join('');
 
-      // 呼び出し中リストの表示
-      readyContainer.innerHTML = readyOrders.length === 0 ? '<p class="text-xs text-gray-400 py-4 text-center">呼び出し中なし</p>' : 
+      readyContainer.innerHTML = readyOrders.length === 0 ? '<p class="text-xs text-gray-400 py-6 text-center">呼び出し中の注文はありません</p>' : 
         readyOrders.map(o => `
-          <div class="border-l-4 border-green-500 bg-green-50/50 p-3 rounded-r-lg border shadow-sm space-y-2">
+          <div class="border-l-4 border-green-500 bg-green-50/40 p-3.5 rounded-r-xl border shadow-sm space-y-2">
             <div class="flex justify-between items-center">
               <span class="text-2xl font-black text-green-700">${o.orderNumber}</span>
-              <span class="bg-green-200 text-green-900 text-xs px-2 py-1 rounded font-bold">${o.studentInfo}</span>
+              <span class="bg-green-100 text-green-900 text-xs px-2.5 py-1 rounded-md font-bold">${o.studentInfo}</span>
             </div>
             <div class="flex justify-between items-center text-xs text-gray-600">
               <div>${(o.items || []).map(i => `<span>・${i.name}</span>`).join('')}</div>
               <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
             </div>
-            <div class="flex gap-2">
-              <button onclick="window.updateStatus('${o.id}', 'completed')" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs transition">
+            <div class="flex gap-2 pt-1">
+              <button onclick="window.updateStatus('${o.id}', 'completed')" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs transition shadow">
                 ✅ 提供完了
               </button>
               <button onclick="window.cancelOrder('${o.id}', '${o.orderNumber}')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-2 rounded-lg text-xs transition">
@@ -228,9 +337,178 @@
             </div>
           </div>
         `).join('');
-    });
+    }
 
-    // メニュー管理（アイコンドロップダウン変更・売り切れ・価格変更・削除）
+    // 売上分析 & 履歴レンダリング
+    function renderAnalytics(data) {
+      const orders = Object.keys(data).map(k => ({ id: k, ...data[k] }));
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const monthStr = now.toISOString().slice(0, 7);
+
+      let todaySales = 0, todayCount = 0;
+      let monthSales = 0, monthCount = 0;
+      const productStats = {};
+      const dailySalesMap = {};
+
+      // 直近7日間の初期化
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        dailySalesMap[d.toISOString().slice(0, 10)] = 0;
+      }
+
+      orders.forEach(o => {
+        const dateObj = new Date(o.timestamp || Date.now());
+        const dateStr = dateObj.toISOString().slice(0, 10);
+        const mStr = dateObj.toISOString().slice(0, 7);
+        const totalAmount = (o.items || []).reduce((sum, item) => sum + Number(item.price || 0), 0);
+
+        if (dateStr === todayStr) {
+          todaySales += totalAmount;
+          todayCount++;
+        }
+        if (mStr === monthStr) {
+          monthSales += totalAmount;
+          monthCount++;
+
+          // 商品別集計 (当月)
+          (o.items || []).forEach(item => {
+            if (!productStats[item.name]) {
+              productStats[item.name] = { count: 0, sales: 0 };
+            }
+            productStats[item.name].count++;
+            productStats[item.name].sales += Number(item.price || 0);
+          });
+        }
+
+        if (dailySalesMap[dateStr] !== undefined) {
+          dailySalesMap[dateStr] += totalAmount;
+        }
+      });
+
+      document.getElementById('statTodaySales').innerText = `¥${todaySales.toLocaleString()}`;
+      document.getElementById('statTodayCount').innerText = `${todayCount}件`;
+      document.getElementById('statMonthSales').innerText = `¥${monthSales.toLocaleString()}`;
+      document.getElementById('statMonthCount').innerText = `${monthCount}件`;
+
+      // 商品別実績描画
+      const productBody = document.getElementById('productStatsBody');
+      const sortedProducts = Object.keys(productStats).sort((a,b) => productStats[b].sales - productStats[a].sales);
+      productBody.innerHTML = sortedProducts.length === 0 ? '<tr><td colspan="3" class="text-center py-4 text-gray-400">データがありません</td></tr>' :
+        sortedProducts.map(name => `
+          <tr class="hover:bg-gray-50">
+            <td class="py-2 font-bold text-gray-700">${name}</td>
+            <td class="py-2 text-right font-mono">${productStats[name].count}</td>
+            <td class="py-2 text-right font-mono font-bold text-emerald-600">¥${productStats[name].sales.toLocaleString()}</td>
+          </tr>
+        `).join('');
+
+      // チャート描画 (Chart.js)
+      const ctx = document.getElementById('salesChart').getContext('2d');
+      const labels = Object.keys(dailySalesMap).map(d => d.slice(5));
+      const chartValues = Object.values(dailySalesMap);
+
+      if (salesChartInstance) salesChartInstance.destroy();
+      salesChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '売上高 (円)',
+            data: chartValues,
+            backgroundColor: '#10b981',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+
+      // 注文履歴・編集テーブル描画
+      const historyBody = document.getElementById('orderHistoryBody');
+      const sortedHistory = [...orders].sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      historyBody.innerHTML = sortedHistory.length === 0 ? '<tr><td colspan="7" class="text-center py-6 text-gray-400">注文履歴がありません</td></tr>' :
+        sortedHistory.map(o => {
+          const total = (o.items || []).reduce((s, i) => s + Number(i.price || 0), 0);
+          const time = new Date(o.timestamp || Date.now()).toLocaleString([], { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+          const statusBadge = o.status === 'completed' ? '<span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-bold">提供完了</span>' :
+                              o.status === 'ready' ? '<span class="bg-green-100 text-green-800 px-2 py-0.5 rounded font-bold">呼び出し中</span>' :
+                              '<span class="bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold">調理中</span>';
+
+          return `
+            <tr class="hover:bg-gray-50 transition">
+              <td class="p-3 font-mono text-gray-500 whitespace-nowrap">${time}</td>
+              <td class="p-3 font-black text-gray-800">${o.orderNumber}</td>
+              <td class="p-3 font-bold text-gray-700">${o.studentInfo || '-'}</td>
+              <td class="p-3 text-gray-600">${(o.items || []).map(i => `${i.name}(¥${i.price})`).join(', ')}</td>
+              <td class="p-3 font-mono font-bold text-emerald-600">¥${total.toLocaleString()}</td>
+              <td class="p-3">${statusBadge}</td>
+              <td class="p-3 text-right whitespace-nowrap">
+                <button onclick="window.openEditModal('${o.id}')" class="bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-blue-200 transition">
+                  ✏️ 編集
+                </button>
+                <button onclick="window.cancelOrder('${o.id}', '${o.orderNumber}')" class="bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-red-200 transition ml-1">
+                  🗑 削除
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+    }
+
+    // モーダル編集操作
+    window.openEditModal = (orderId) => {
+      const o = cachedOrders[orderId];
+      if (!o) return;
+
+      document.getElementById('editOrderId').value = orderId;
+      document.getElementById('editOrderNumber').value = o.orderNumber || '';
+      document.getElementById('editStudentInfo').value = o.studentInfo || '';
+      document.getElementById('editStatus').value = o.status || 'preparing';
+      document.getElementById('editItemsText').value = (o.items || []).map(i => `${i.name},${i.price}`).join('\n');
+
+      document.getElementById('editModal').classList.remove('hidden');
+    };
+
+    window.closeEditModal = () => {
+      document.getElementById('editModal').classList.add('hidden');
+    };
+
+    window.saveOrderEdit = () => {
+      const orderId = document.getElementById('editOrderId').value;
+      const orderNumber = document.getElementById('editOrderNumber').value.trim();
+      const studentInfo = document.getElementById('editStudentInfo').value.trim();
+      const status = document.getElementById('editStatus').value;
+      const itemsText = document.getElementById('editItemsText').value.trim();
+
+      const items = itemsText.split('\n').filter(line => line.includes(',')).map(line => {
+        const [name, price] = line.split(',');
+        return { name: name.trim(), price: Number(price.trim()) || 0 };
+      });
+
+      if (!orderNumber || items.length === 0) {
+        alert('注文番号と有効な商品明細を入力してください。');
+        return;
+      }
+
+      update(ref(db, `orders/${orderId}`), {
+        orderNumber,
+        studentInfo,
+        status,
+        items
+      }).then(() => {
+        alert('注文データ更新完了');
+        window.closeEditModal();
+      });
+    };
+
+    // メニュー管理
     window.toggleSoldOut = (menuId, currentStatus) => {
       update(ref(db, `menu/${menuId}`), { isSoldOut: !currentStatus });
     };
@@ -238,8 +516,6 @@
     window.updateProductInfo = (menuId) => {
       const emojiSelect = document.getElementById(`emoji-select-${menuId}`);
       const priceInput = document.getElementById(`price-input-${menuId}`);
-      
-      const newEmoji = emojiSelect.value;
       const newPrice = parseInt(priceInput.value, 10);
 
       if (isNaN(newPrice) || newPrice < 0) {
@@ -248,18 +524,14 @@
       }
 
       update(ref(db, `menu/${menuId}`), { 
-        emoji: newEmoji,
+        emoji: emojiSelect.value,
         price: newPrice 
-      }).then(() => {
-        alert("商品情報を更新しました。");
-      });
+      }).then(() => alert("商品情報を更新しました。"));
     };
 
     window.deleteProduct = (menuId, productName) => {
-      if (confirm(`「${productName}」を完全に削除しますか？`)) {
-        remove(ref(db, `menu/${menuId}`)).then(() => {
-          alert("商品を削除しました。");
-        });
+      if (confirm(`「${productName}」を削除しますか？`)) {
+        remove(ref(db, `menu/${menuId}`));
       }
     };
 
@@ -277,13 +549,10 @@
         const item = data[key];
         const isSoldOut = item.isSoldOut || false;
         const emoji = item.emoji || '🍱';
-
-        const emojiOptionsHtml = FOOD_EMOJIS.map(e => `
-          <option value="${e}" ${e === emoji ? 'selected' : ''}>${e}</option>
-        `).join('');
+        const emojiOptionsHtml = FOOD_EMOJIS.map(e => `<option value="${e}" ${e === emoji ? 'selected' : ''}>${e}</option>`).join('');
 
         return `
-          <div class="p-3 border rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gray-50">
+          <div class="p-3 border rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gray-50">
             <div class="flex items-center gap-2">
               <select id="emoji-select-${key}" class="text-lg bg-white border rounded p-1">
                 ${emojiOptionsHtml}
@@ -294,13 +563,13 @@
               <div class="flex items-center text-xs text-gray-500">
                 ¥<input type="number" id="price-input-${key}" defaultValue="${item.price}" class="w-20 border rounded p-1 text-xs text-right ml-1">
               </div>
-              <button onclick="window.updateProductInfo('${key}')" class="bg-gray-700 hover:bg-gray-800 text-white text-xs px-2.5 py-1.5 rounded font-bold">
+              <button onclick="window.updateProductInfo('${key}')" class="bg-gray-700 hover:bg-gray-800 text-white text-xs px-2.5 py-1.5 rounded-lg font-bold">
                 更新
               </button>
-              <button onclick="window.toggleSoldOut('${key}', ${isSoldOut})" class="text-xs px-3 py-1.5 rounded font-bold text-white ${isSoldOut ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-600 hover:bg-emerald-700'}">
+              <button onclick="window.toggleSoldOut('${key}', ${isSoldOut})" class="text-xs px-3 py-1.5 rounded-lg font-bold text-white ${isSoldOut ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-600 hover:bg-emerald-700'}">
                 ${isSoldOut ? '売り切れ中' : '販売中'}
               </button>
-              <button onclick="window.deleteProduct('${key}', '${item.name}')" class="bg-gray-200 hover:bg-red-100 text-red-600 text-xs px-2.5 py-1.5 rounded font-bold transition">
+              <button onclick="window.deleteProduct('${key}', '${item.name}')" class="bg-gray-200 hover:bg-red-100 text-red-600 text-xs px-2.5 py-1.5 rounded-lg font-bold transition">
                 🗑 削除
               </button>
             </div>
