@@ -25,7 +25,6 @@
     </div>
   </div>
 
-  <!-- メインコンテンツ -->
   <div id="adminContent" class="hidden">
     <header class="bg-gray-800 text-white p-4 shadow-md sticky top-0 z-40 flex justify-between items-center">
       <div class="flex items-center gap-2">
@@ -37,7 +36,7 @@
       </button>
     </header>
 
-    <main class="max-w-7xl mx-auto p-4 space-y-8 pb-16">
+    <main class="max-w-7xl mx-auto p-4 space-y-6 pb-16">
       
       <!-- タブ切り替え -->
       <div class="flex border-b border-gray-200 bg-white rounded-xl p-1 shadow-sm">
@@ -45,7 +44,7 @@
           📋 注文リアルタイム管理
         </button>
         <button id="tabUsersBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition">
-          👥 ユーザー・PIN管理
+          👥 生徒パスワード（PIN）マスター管理
         </button>
       </div>
 
@@ -58,12 +57,27 @@
         <div id="ordersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
       </section>
 
-      <!-- セクション2: ユーザー情報・PIN管理 -->
+      <!-- セクション2: 全生徒パスワードマスター管理 -->
       <section id="usersSection" class="hidden space-y-4">
+        
+        <!-- 一括初期化ツール -->
+        <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
+          <h3 class="font-bold text-sm text-amber-900">⚙️ 全生徒データの初期化・一括発行</h3>
+          <p class="text-xs text-amber-800">
+            全クラス（1〜3年 × 1〜9組 × 1〜42番 = 計1,134名分）の初期パスワードを一括登録します。生徒には配る紙に書いた共通初期PINを知らせてください。
+          </p>
+          <div class="flex items-center gap-3">
+            <input type="text" id="defaultPinInput" maxlength="4" value="0000" placeholder="初期PIN (4桁)" class="bg-white border p-2 rounded text-sm font-bold w-32 text-center">
+            <button id="bulkInitBtn" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition">
+              全生徒の初期PINを一括作成・初期化する
+            </button>
+          </div>
+        </div>
+
         <div class="flex justify-between items-center">
           <div>
-            <h2 class="text-lg font-bold text-gray-800">登録済み生徒一覧</h2>
-            <p class="text-xs text-gray-500">初回注文時に自動登録された学籍とPINコードの一覧です</p>
+            <h2 class="text-lg font-bold text-gray-800">全生徒パスワード一覧</h2>
+            <p class="text-xs text-gray-500">生徒が各自変更したパスワードもここで確認・リセットできます</p>
           </div>
           <span id="userCountBadge" class="bg-gray-200 text-gray-800 text-xs font-bold px-3 py-1 rounded-full">0 名</span>
         </div>
@@ -73,16 +87,14 @@
             <table class="w-full text-left border-collapse">
               <thead>
                 <tr class="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
-                  <th class="p-3">学籍識別ID</th>
+                  <th class="p-3">学籍キー</th>
                   <th class="p-3">学年 / クラス / 番号</th>
-                  <th class="p-3">現在のPIN</th>
-                  <th class="p-3">登録日時</th>
+                  <th class="p-3">現在の設定PIN</th>
+                  <th class="p-3">ステータス</th>
                   <th class="p-3 text-right">操作</th>
                 </tr>
               </thead>
-              <tbody id="userTableBody" class="divide-y divide-gray-200 text-sm">
-                <!-- JSで動的挿入 -->
-              </tbody>
+              <tbody id="userTableBody" class="divide-y divide-gray-200 text-sm"></tbody>
             </table>
           </div>
         </div>
@@ -93,7 +105,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAZ53Gowy1BoIXT5nGLC_MdFJ3vpfqiGp0",
@@ -105,12 +117,11 @@
       appId: "1:1030918225373:web:353c77fecd49d4a94f8a34"
     };
 
-    const ADMIN_PASSWORD = "admin1234"; // 画面ログイン用パスワード
+    const ADMIN_PASSWORD = "admin1234";
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 要素参照
     const authOverlay = document.getElementById('authOverlay');
     const adminContent = document.getElementById('adminContent');
     const adminPassInput = document.getElementById('adminPassInput');
@@ -122,7 +133,6 @@
     const ordersSection = document.getElementById('ordersSection');
     const usersSection = document.getElementById('usersSection');
 
-    // 管理者ログイン判定
     adminLoginBtn.addEventListener('click', () => {
       if (adminPassInput.value === ADMIN_PASSWORD) {
         authOverlay.classList.add('hidden');
@@ -133,11 +143,8 @@
       }
     });
 
-    adminLogoutBtn.addEventListener('click', () => {
-      location.reload();
-    });
+    adminLogoutBtn.addEventListener('click', () => { location.reload(); });
 
-    // タブ切り替え処理
     tabOrdersBtn.addEventListener('click', () => {
       tabOrdersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition";
       tabUsersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
@@ -157,7 +164,41 @@
       listenToUsers();
     }
 
-    // 1. 注文リストのリアルタイム監視
+    // 全生徒の一括初期PIN設定処理
+    document.getElementById('bulkInitBtn').addEventListener('click', async () => {
+      const defaultPin = document.getElementById('defaultPinInput').value.trim();
+      if (!/^\d{4}$/.test(defaultPin)) {
+        alert('4桁の半角数字を入力してください。');
+        return;
+      }
+
+      if (!confirm(`全生徒（1〜3年・1〜9組・1〜42番）の初期暗証番号を「${defaultPin}」で一括生成・リセットしますか？`)) return;
+
+      const bulkData = {};
+      const now = Date.now();
+
+      for (let g = 1; g <= 3; g++) {
+        for (let c = 1; c <= 9; c++) {
+          for (let n = 1; n <= 42; n++) {
+            const key = `${g}_${c}_${n}`;
+            bulkData[key] = {
+              pin: defaultPin,
+              isInitial: true, // 初期パスワードフラグ
+              updatedAt: now
+            };
+          }
+        }
+      }
+
+      try {
+        await set(ref(db, 'registeredUsers'), bulkData);
+        alert('全生徒（1,134名分）の初期暗証番号データを作成完了しました！');
+      } catch (err) {
+        console.error("一括生成エラー:", err);
+        alert("データベースへの登録に失敗しました。");
+      }
+    });
+
     function listenToOrders() {
       onValue(ref(db, 'orders'), (snapshot) => {
         const data = snapshot.val() || {};
@@ -192,7 +233,7 @@
                 <span class="text-xs text-gray-400">${new Date(order.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
               <div class="my-2">
-                <span class="text-xs text-gray-500 block">番号</span>
+                <span class="text-xs text-gray-400 block">受取番号</span>
                 <span class="text-3xl font-black text-gray-800">${order.orderNumber}</span>
               </div>
               <p class="text-xs font-bold text-gray-600 mb-3">👤 ${order.studentInfo} （${order.paymentMethod || '未選択'}）</p>
@@ -221,7 +262,6 @@
       update(ref(db, `orders/${orderId}`), { status: newStatus });
     };
 
-    // 2. 登録ユーザー＆PINコード管理の監視
     function listenToUsers() {
       onValue(ref(db, 'registeredUsers'), (snapshot) => {
         const data = snapshot.val() || {};
@@ -233,15 +273,14 @@
         badge.innerText = `${userKeys.length} 名`;
 
         if (userKeys.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">登録ユーザーはいません</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">データがありません。上の「一括作成」を実行してください。</td></tr>';
           return;
         }
 
         userKeys.forEach(userKey => {
           const user = data[userKey];
-          const parts = userKey.split('_'); // 例: 1_2_15 -> 1年2組15番
+          const parts = userKey.split('_');
           const formattedInfo = `${parts[0]}年 ${parts[1]}組 ${parts[2]}番`;
-          const regTime = user.createdAt ? new Date(user.createdAt).toLocaleString() : '不明';
 
           const tr = document.createElement('tr');
           tr.className = "hover:bg-gray-50 transition";
@@ -253,13 +292,14 @@
                 ${user.pin}
               </span>
             </td>
-            <td class="p-3 text-xs text-gray-400">${regTime}</td>
-            <td class="p-3 text-right space-x-2">
+            <td class="p-3 text-xs">
+              ${user.isInitial ? 
+                '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">初期状態</span>' : 
+                '<span class="bg-green-100 text-green-800 px-2 py-0.5 rounded font-bold">変更済み</span>'}
+            </td>
+            <td class="p-3 text-right">
               <button onclick="window.resetUserPin('${userKey}')" class="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
                 PINリセット
-              </button>
-              <button onclick="window.deleteUser('${userKey}')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
-                削除
               </button>
             </td>
           `;
@@ -268,9 +308,8 @@
       });
     }
 
-    // PINコードの個別リセット機能
     window.resetUserPin = (userKey) => {
-      const newPin = prompt(`【${userKey.replace(/_/g, ' ')}】 の新しい4桁のPINを入力してください:`);
+      const newPin = prompt(`【${userKey.replace(/_/g, ' ')}】 の新しい4桁のPINを入力してください:`, "0000");
       if (!newPin) return;
 
       if (!/^\d{4}$/.test(newPin)) {
@@ -278,18 +317,9 @@
         return;
       }
 
-      update(ref(db, `registeredUsers/${userKey}`), { pin: newPin })
-        .then(() => alert('暗証番号（PIN）を正常に更新しました。'))
+      update(ref(db, `registeredUsers/${userKey}`), { pin: newPin, isInitial: true, updatedAt: Date.now() })
+        .then(() => alert('暗証番号（PIN）を更新・初期化しました。'))
         .catch((err) => alert('更新に失敗しました: ' + err.message));
-    };
-
-    // アカウント情報の削除機能
-    window.deleteUser = (userKey) => {
-      if (confirm(`本当に 【${userKey.replace(/_/g, ' ')}】 の登録情報を削除しますか？\n（削除された生徒は次回アクセス時に新しいPINで再登録が可能になります）`)) {
-        remove(ref(db, `registeredUsers/${userKey}`))
-          .then(() => alert('削除しました。'))
-          .catch((err) => alert('削除に失敗しました: ' + err.message));
-      }
     };
   </script>
 </body>
