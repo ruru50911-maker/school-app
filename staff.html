@@ -51,9 +51,9 @@
       </section>
     </div>
 
-    <!-- タブ2: メニュー管理（売り切れ設定・価格変更・削除） -->
+    <!-- タブ2: メニュー管理（アイコン・価格変更・売り切れ・削除） -->
     <div id="tabMenu" class="hidden bg-white p-6 rounded-xl border shadow-sm">
-      <h2 class="text-md font-bold mb-4 text-gray-800">🍔 商品一覧・売り切れ / 価格 / 削除</h2>
+      <h2 class="text-md font-bold mb-4 text-gray-800">🍔 商品一覧・アイコン / 価格 / 状態設定</h2>
       <div id="menuList" class="space-y-3">
         <p class="text-xs text-gray-400 py-4 text-center">読み込み中...</p>
       </div>
@@ -63,6 +63,10 @@
     <div id="tabAdd" class="hidden bg-white p-6 rounded-xl border shadow-sm max-w-md mx-auto">
       <h2 class="text-md font-bold mb-4 text-gray-800">➕ 新商品の追加</h2>
       <form id="addProductForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">アイコン（絵文字）</label>
+          <input type="text" id="newProductEmoji" required placeholder="例: 🍱" value="🍱" class="w-full border rounded-lg p-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
         <div>
           <label class="block text-xs font-bold text-gray-700 mb-1">商品名</label>
           <input type="text" id="newProductName" required placeholder="例: 唐揚げ定食" class="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
@@ -178,25 +182,32 @@
     });
 
     // --------------------------------------------------
-    // メニュー管理（売り切れ・価格変更・商品削除）
+    // メニュー管理（アイコン変更・売り切れ・価格変更・削除）
     // --------------------------------------------------
     window.toggleSoldOut = (menuId, currentStatus) => {
       update(ref(db, `menu/${menuId}`), { isSoldOut: !currentStatus });
     };
 
-    window.updatePrice = (menuId) => {
-      const input = document.getElementById(`price-input-${menuId}`);
-      const newPrice = parseInt(input.value, 10);
+    window.updateProductInfo = (menuId) => {
+      const emojiInput = document.getElementById(`emoji-input-${menuId}`);
+      const priceInput = document.getElementById(`price-input-${menuId}`);
+      
+      const newEmoji = emojiInput.value.trim() || '🍱';
+      const newPrice = parseInt(priceInput.value, 10);
+
       if (isNaN(newPrice) || newPrice < 0) {
         alert("正しい金額を入力してください。");
         return;
       }
-      update(ref(db, `menu/${menuId}`), { price: newPrice }).then(() => {
-        alert("価格を更新しました。");
+
+      update(ref(db, `menu/${menuId}`), { 
+        emoji: newEmoji,
+        price: newPrice 
+      }).then(() => {
+        alert("商品情報を更新しました。");
       });
     };
 
-    // 商品削除処理関数
     window.deleteProduct = (menuId, productName) => {
       if (confirm(`「${productName}」を完全に削除しますか？`)) {
         remove(ref(db, `menu/${menuId}`)).then(() => {
@@ -218,16 +229,19 @@
       menuContainer.innerHTML = menuKeys.map(key => {
         const item = data[key];
         const isSoldOut = item.isSoldOut || false;
+        const emoji = item.emoji || '🍱';
         return `
           <div class="p-3 border rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gray-50">
-            <div>
+            <div class="flex items-center gap-2">
+              <input type="text" id="emoji-input-${key}" defaultValue="${emoji}" class="w-10 text-center border rounded p-1 text-base">
               <span class="font-bold text-gray-800 text-sm">${item.name}</span>
-              <span class="text-xs text-gray-500 ml-2">（現在: ¥${item.price}）</span>
             </div>
             <div class="flex items-center gap-2">
-              <input type="number" id="price-input-${key}" defaultValue="${item.price}" class="w-20 border rounded p-1 text-xs text-right">
-              <button onclick="window.updatePrice('${key}')" class="bg-gray-700 hover:bg-gray-800 text-white text-xs px-2.5 py-1.5 rounded font-bold">
-                価格更新
+              <div class="flex items-center text-xs text-gray-500">
+                ¥<input type="number" id="price-input-${key}" defaultValue="${item.price}" class="w-20 border rounded p-1 text-xs text-right ml-1">
+              </div>
+              <button onclick="window.updateProductInfo('${key}')" class="bg-gray-700 hover:bg-gray-800 text-white text-xs px-2.5 py-1.5 rounded font-bold">
+                更新
               </button>
               <button onclick="window.toggleSoldOut('${key}', ${isSoldOut})" class="text-xs px-3 py-1.5 rounded font-bold text-white ${isSoldOut ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-600 hover:bg-emerald-700'}">
                 ${isSoldOut ? '売り切れ中' : '販売中'}
@@ -244,9 +258,11 @@
     // 新商品追加処理
     document.getElementById('addProductForm').addEventListener('submit', (e) => {
       e.preventDefault();
+      const emojiInput = document.getElementById('newProductEmoji');
       const nameInput = document.getElementById('newProductName');
       const priceInput = document.getElementById('newProductPrice');
 
+      const emoji = emojiInput.value.trim() || '🍱';
       const name = nameInput.value.trim();
       const price = parseInt(priceInput.value, 10);
 
@@ -257,11 +273,13 @@
 
       const newMenuRef = push(ref(db, 'menu'));
       set(newMenuRef, {
+        emoji: emoji,
         name: name,
         price: price,
         isSoldOut: false
       }).then(() => {
         alert(`「${name}」を追加しました。`);
+        emojiInput.value = '🍱';
         nameInput.value = '';
         priceInput.value = '';
         switchTab('menu');
