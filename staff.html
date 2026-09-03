@@ -144,11 +144,23 @@
       });
     };
 
-    // 注文ステータス更新・消去
+    // 注文ステータス更新
     window.updateStatus = (orderId, newStatus) => {
       update(ref(db, `orders/${orderId}`), { status: newStatus });
     };
 
+    // 注文の個別取り消し（キャンセル）機能
+    window.cancelOrder = (orderId, orderNumber) => {
+      if (confirm(`注文番号 [${orderNumber}] を取り消しますか？\n（この操作は元に戻せません）`)) {
+        remove(ref(db, `orders/${orderId}`)).then(() => {
+          alert(`注文番号 [${orderNumber}] を取り消しました。`);
+        }).catch((error) => {
+          alert("取り消し処理に失敗しました: " + error.message);
+        });
+      }
+    };
+
+    // 全注文の削除
     document.getElementById('clearBtn').addEventListener('click', () => {
       if (confirm("すべての注文データを削除しますか？カウンターもリセットされます。")) {
         remove(ref(db, 'orders'));
@@ -171,6 +183,7 @@
       document.getElementById('countPreparing').innerText = preparingOrders.length;
       document.getElementById('countReady').innerText = readyOrders.length;
 
+      // 調理中リストの表示
       preparingContainer.innerHTML = preparingOrders.length === 0 ? '<p class="text-xs text-gray-400 py-4 text-center">調理待ちなし</p>' : 
         preparingOrders.map(o => `
           <div class="border-l-4 border-orange-500 bg-orange-50/50 p-3 rounded-r-lg border shadow-sm space-y-2">
@@ -182,12 +195,18 @@
               <div>${(o.items || []).map(i => `<span>・${i.name} (¥${i.price})</span>`).join('')}</div>
               <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
             </div>
-            <button onclick="window.updateStatus('${o.id}', 'ready')" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition">
-              🔔 呼び出し通知を送る
-            </button>
+            <div class="flex gap-2">
+              <button onclick="window.updateStatus('${o.id}', 'ready')" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition">
+                🔔 呼び出し通知を送る
+              </button>
+              <button onclick="window.cancelOrder('${o.id}', '${o.orderNumber}')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-2 rounded-lg text-xs transition">
+                🗑 キャンセル
+              </button>
+            </div>
           </div>
         `).join('');
 
+      // 呼び出し中リストの表示
       readyContainer.innerHTML = readyOrders.length === 0 ? '<p class="text-xs text-gray-400 py-4 text-center">呼び出し中なし</p>' : 
         readyOrders.map(o => `
           <div class="border-l-4 border-green-500 bg-green-50/50 p-3 rounded-r-lg border shadow-sm space-y-2">
@@ -199,16 +218,19 @@
               <div>${(o.items || []).map(i => `<span>・${i.name}</span>`).join('')}</div>
               <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
             </div>
-            <button onclick="window.updateStatus('${o.id}', 'completed')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs transition">
-              ✅ 提供完了
-            </button>
+            <div class="flex gap-2">
+              <button onclick="window.updateStatus('${o.id}', 'completed')" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs transition">
+                ✅ 提供完了
+              </button>
+              <button onclick="window.cancelOrder('${o.id}', '${o.orderNumber}')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold px-3 py-2 rounded-lg text-xs transition">
+                🗑 キャンセル
+              </button>
+            </div>
           </div>
         `).join('');
     });
 
-    // --------------------------------------------------
     // メニュー管理（アイコンドロップダウン変更・売り切れ・価格変更・削除）
-    // --------------------------------------------------
     window.toggleSoldOut = (menuId, currentStatus) => {
       update(ref(db, `menu/${menuId}`), { isSoldOut: !currentStatus });
     };
