@@ -64,8 +64,11 @@
       <h2 class="text-md font-bold mb-4 text-gray-800">➕ 新商品の追加</h2>
       <form id="addProductForm" class="space-y-4">
         <div>
-          <label class="block text-xs font-bold text-gray-700 mb-1">アイコン（絵文字）</label>
-          <input type="text" id="newProductEmoji" required placeholder="例: 🍱" value="🍱" class="w-full border rounded-lg p-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <label class="block text-xs font-bold text-gray-700 mb-1">アイコン（食べ物から選択）</label>
+          <input type="hidden" id="newProductEmoji" value="🍱">
+          <div id="emojiPicker" class="grid grid-cols-8 gap-1.5 p-2 bg-gray-50 border rounded-lg">
+            <!-- JSで食べ物絵文字一覧を表示 -->
+          </div>
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-700 mb-1">商品名</label>
@@ -99,6 +102,28 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+
+    // 食べ物系絵文字リスト
+    const FOOD_EMOJIS = ['🍱', '🍜', '🍛', '🍙', '🥪', '🍟', '🍔', '🥗', '🍝', '🍢', '🥟', '🍤', '🥐', '🍦', '🍩', '🧃'];
+
+    // 新規登録用の絵文字ピッカー初期化
+    const emojiPicker = document.getElementById('emojiPicker');
+    const newProductEmojiInput = document.getElementById('newProductEmoji');
+
+    FOOD_EMOJIS.forEach((e, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `p-2 text-xl rounded transition hover:bg-emerald-100 ${idx === 0 ? 'bg-emerald-200 ring-2 ring-emerald-500' : 'bg-white'}`;
+      btn.innerText = e;
+      btn.onclick = () => {
+        newProductEmojiInput.value = e;
+        Array.from(emojiPicker.children).forEach(child => {
+          child.className = 'p-2 text-xl rounded transition hover:bg-emerald-100 bg-white';
+        });
+        btn.className = 'p-2 text-xl rounded transition hover:bg-emerald-100 bg-emerald-200 ring-2 ring-emerald-500';
+      };
+      emojiPicker.appendChild(btn);
+    });
 
     // タブ切り替え
     window.switchTab = (tabName) => {
@@ -182,17 +207,17 @@
     });
 
     // --------------------------------------------------
-    // メニュー管理（アイコン変更・売り切れ・価格変更・削除）
+    // メニュー管理（アイコンドロップダウン変更・売り切れ・価格変更・削除）
     // --------------------------------------------------
     window.toggleSoldOut = (menuId, currentStatus) => {
       update(ref(db, `menu/${menuId}`), { isSoldOut: !currentStatus });
     };
 
     window.updateProductInfo = (menuId) => {
-      const emojiInput = document.getElementById(`emoji-input-${menuId}`);
+      const emojiSelect = document.getElementById(`emoji-select-${menuId}`);
       const priceInput = document.getElementById(`price-input-${menuId}`);
       
-      const newEmoji = emojiInput.value.trim() || '🍱';
+      const newEmoji = emojiSelect.value;
       const newPrice = parseInt(priceInput.value, 10);
 
       if (isNaN(newPrice) || newPrice < 0) {
@@ -230,10 +255,17 @@
         const item = data[key];
         const isSoldOut = item.isSoldOut || false;
         const emoji = item.emoji || '🍱';
+
+        const emojiOptionsHtml = FOOD_EMOJIS.map(e => `
+          <option value="${e}" ${e === emoji ? 'selected' : ''}>${e}</option>
+        `).join('');
+
         return `
           <div class="p-3 border rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gray-50">
             <div class="flex items-center gap-2">
-              <input type="text" id="emoji-input-${key}" defaultValue="${emoji}" class="w-10 text-center border rounded p-1 text-base">
+              <select id="emoji-select-${key}" class="text-lg bg-white border rounded p-1">
+                ${emojiOptionsHtml}
+              </select>
               <span class="font-bold text-gray-800 text-sm">${item.name}</span>
             </div>
             <div class="flex items-center gap-2">
@@ -258,11 +290,10 @@
     // 新商品追加処理
     document.getElementById('addProductForm').addEventListener('submit', (e) => {
       e.preventDefault();
-      const emojiInput = document.getElementById('newProductEmoji');
+      const emoji = newProductEmojiInput.value || '🍱';
       const nameInput = document.getElementById('newProductName');
       const priceInput = document.getElementById('newProductPrice');
 
-      const emoji = emojiInput.value.trim() || '🍱';
       const name = nameInput.value.trim();
       const price = parseInt(priceInput.value, 10);
 
@@ -279,7 +310,6 @@
         isSoldOut: false
       }).then(() => {
         alert(`「${name}」を追加しました。`);
-        emojiInput.value = '🍱';
         nameInput.value = '';
         priceInput.value = '';
         switchTab('menu');
