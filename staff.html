@@ -15,8 +15,25 @@
     </button>
   </header>
 
+  <!-- タブナビゲーション -->
+  <div class="bg-white border-b shadow-sm">
+    <div class="max-w-4xl mx-auto flex">
+      <button id="tabOrdersBtn" onclick="switchTab('orders')" class="flex-1 py-3 text-center font-bold text-sm text-emerald-700 border-b-2 border-emerald-700 focus:outline-none">
+        📋 注文管理
+      </button>
+      <button id="tabMenuBtn" onclick="switchTab('menu')" class="flex-1 py-3 text-center font-bold text-sm text-gray-500 border-b-2 border-transparent hover:text-emerald-700 focus:outline-none">
+        🍔 メニュー管理・価格変更
+      </button>
+      <button id="tabAddBtn" onclick="switchTab('add')" class="flex-1 py-3 text-center font-bold text-sm text-gray-500 border-b-2 border-transparent hover:text-emerald-700 focus:outline-none">
+        ➕ 新商品追加
+      </button>
+    </div>
+  </div>
+
   <main class="flex-1 max-w-4xl w-full mx-auto p-4">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    
+    <!-- タブ1: 注文管理 -->
+    <div id="tabOrders" class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <section class="bg-white p-4 rounded-xl border shadow-sm">
         <h2 class="text-md font-bold mb-3 text-orange-600 flex justify-between">
           <span>🍳 調理中</span>
@@ -33,11 +50,38 @@
         <div id="readyList" class="space-y-3"></div>
       </section>
     </div>
+
+    <!-- タブ2: メニュー管理（売り切れ設定・価格変更） -->
+    <div id="tabMenu" class="hidden bg-white p-6 rounded-xl border shadow-sm">
+      <h2 class="text-md font-bold mb-4 text-gray-800">🍔 商品一覧・売り切れ / 価格設定</h2>
+      <div id="menuList" class="space-y-3">
+        <p class="text-xs text-gray-400 py-4 text-center">読み込み中...</p>
+      </div>
+    </div>
+
+    <!-- タブ3: 新商品追加 -->
+    <div id="tabAdd" class="hidden bg-white p-6 rounded-xl border shadow-sm max-w-md mx-auto">
+      <h2 class="text-md font-bold mb-4 text-gray-800">➕ 新商品の追加</h2>
+      <form id="addProductForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">商品名</label>
+          <input type="text" id="newProductName" required placeholder="例: 唐揚げ定食" class="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">金額 (円)</label>
+          <input type="number" id="newProductPrice" required min="0" placeholder="例: 500" class="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg text-sm transition">
+          商品を登録する
+        </button>
+      </form>
+    </div>
+
   </main>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, update, remove, push, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAZ53Gowy1BoIXT5nGLC_MdFJ3vpfqiGp0",
@@ -52,6 +96,30 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // --------------------------------------------------
+    // タブ切り替え制御
+    // --------------------------------------------------
+    window.switchTab = (tabName) => {
+      const tabs = ['orders', 'menu', 'add'];
+      tabs.forEach(t => {
+        const content = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const btn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
+        
+        if (t === tabName) {
+          content.classList.remove('hidden');
+          btn.classList.add('text-emerald-700', 'border-emerald-700');
+          btn.classList.remove('text-gray-500', 'border-transparent');
+        } else {
+          content.classList.add('hidden');
+          btn.classList.remove('text-emerald-700', 'border-emerald-700');
+          btn.classList.add('text-gray-500', 'border-transparent');
+        }
+      });
+    };
+
+    // --------------------------------------------------
+    // 注文ステータス更新・削除
+    // --------------------------------------------------
     window.updateStatus = (orderId, newStatus) => {
       update(ref(db, `orders/${orderId}`), { status: newStatus });
     };
@@ -63,6 +131,9 @@
       }
     });
 
+    // --------------------------------------------------
+    // リアルタイム注文同期
+    // --------------------------------------------------
     onValue(ref(db, 'orders'), (snapshot) => {
       const data = snapshot.val() || {};
       const preparingContainer = document.getElementById('preparingList');
@@ -85,7 +156,7 @@
               <span class="bg-orange-200 text-orange-900 text-xs px-2 py-1 rounded font-bold">${o.studentInfo}</span>
             </div>
             <div class="flex justify-between items-center text-xs text-gray-600">
-              <div>${o.items.map(i => `<span>・${i.name} (¥${i.price})</span>`).join('')}</div>
+              <div>${(o.items || []).map(i => `<span>・${i.name} (¥${i.price})</span>`).join('')}</div>
               <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
             </div>
             <button onclick="window.updateStatus('${o.id}', 'ready')" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition">
@@ -102,7 +173,7 @@
               <span class="bg-green-200 text-green-900 text-xs px-2 py-1 rounded font-bold">${o.studentInfo}</span>
             </div>
             <div class="flex justify-between items-center text-xs text-gray-600">
-              <div>${o.items.map(i => `<span>・${i.name}</span>`).join('')}</div>
+              <div>${(o.items || []).map(i => `<span>・${i.name}</span>`).join('')}</div>
               <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
             </div>
             <button onclick="window.updateStatus('${o.id}', 'completed')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs transition">
@@ -110,6 +181,87 @@
             </button>
           </div>
         `).join('');
+    });
+
+    // --------------------------------------------------
+    // メニュー管理（リアルタイム同期＆操作）
+    // --------------------------------------------------
+    window.toggleSoldOut = (menuId, currentStatus) => {
+      update(ref(db, `menu/${menuId}`), { isSoldOut: !currentStatus });
+    };
+
+    window.updatePrice = (menuId) => {
+      const input = document.getElementById(`price-input-${menuId}`);
+      const newPrice = parseInt(input.value, 10);
+      if (isNaN(newPrice) || newPrice < 0) {
+        alert("正しい金額を入力してください。");
+        return;
+      }
+      update(ref(db, `menu/${menuId}`), { price: newPrice }).then(() => {
+        alert("価格を更新しました。");
+      });
+    };
+
+    onValue(ref(db, 'menu'), (snapshot) => {
+      const data = snapshot.val() || {};
+      const menuContainer = document.getElementById('menuList');
+      const menuKeys = Object.keys(data);
+
+      if (menuKeys.length === 0) {
+        menuContainer.innerHTML = '<p class="text-xs text-gray-400 py-4 text-center">登録されている商品がありません。</p>';
+        return;
+      }
+
+      menuContainer.innerHTML = menuKeys.map(key => {
+        const item = data[key];
+        const isSoldOut = item.isSoldOut || false;
+        return `
+          <div class="p-3 border rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gray-50">
+            <div>
+              <span class="font-bold text-gray-800 text-sm">${item.name}</span>
+              <span class="text-xs text-gray-500 ml-2">（現在: ¥${item.price}）</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="number" id="price-input-${key}" defaultValue="${item.price}" class="w-20 border rounded p-1 text-xs text-right">
+              <button onclick="window.updatePrice('${key}')" class="bg-gray-700 hover:bg-gray-800 text-white text-xs px-2.5 py-1.5 rounded font-bold">
+                価格更新
+              </button>
+              <button onclick="window.toggleSoldOut('${key}', ${isSoldOut})" class="text-xs px-3 py-1.5 rounded font-bold text-white ${isSoldOut ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-600 hover:bg-emerald-700'}">
+                ${isSoldOut ? '売り切れ中' : '販売中'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    });
+
+    // --------------------------------------------------
+    // 新商品追加処理
+    // --------------------------------------------------
+    document.getElementById('addProductForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nameInput = document.getElementById('newProductName');
+      const priceInput = document.getElementById('newProductPrice');
+
+      const name = nameInput.value.trim();
+      const price = parseInt(priceInput.value, 10);
+
+      if (!name || isNaN(price) || price < 0) {
+        alert("正しく入力してください。");
+        return;
+      }
+
+      const newMenuRef = push(ref(db, 'menu'));
+      set(newMenuRef, {
+        name: name,
+        price: price,
+        isSoldOut: false
+      }).then(() => {
+        alert(`「${name}」を追加しました。`);
+        nameInput.value = '';
+        priceInput.value = '';
+        switchTab('menu');
+      });
     });
   </script>
 </body>
