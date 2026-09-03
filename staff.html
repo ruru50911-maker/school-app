@@ -57,8 +57,9 @@
     };
 
     document.getElementById('clearBtn').addEventListener('click', () => {
-      if (confirm("すべての注文データを削除しますか？")) {
+      if (confirm("すべての注文データを削除しますか？カウンターもリセットされます。")) {
         remove(ref(db, 'orders'));
+        remove(ref(db, 'orderCounter'));
       }
     });
 
@@ -68,6 +69,8 @@
       const readyContainer = document.getElementById('readyList');
 
       const orders = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+      orders.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
       const preparingOrders = orders.filter(o => o.status === 'preparing');
       const readyOrders = orders.filter(o => o.status === 'ready');
 
@@ -76,13 +79,16 @@
 
       preparingContainer.innerHTML = preparingOrders.length === 0 ? '<p class="text-xs text-gray-400 py-4 text-center">調理待ちなし</p>' : 
         preparingOrders.map(o => `
-          <div class="border-l-4 border-orange-500 bg-orange-50/50 p-3 rounded-r-lg border shadow-sm">
-            <div class="flex justify-between items-center mb-1">
-              <span class="text-xl font-black">${o.orderNumber}</span>
-              <span class="bg-orange-200 text-orange-900 text-xs px-2 py-0.5 rounded font-bold">${o.studentInfo}</span>
+          <div class="border-l-4 border-orange-500 bg-orange-50/50 p-3 rounded-r-lg border shadow-sm space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-2xl font-black text-gray-800">${o.orderNumber}</span>
+              <span class="bg-orange-200 text-orange-900 text-xs px-2 py-1 rounded font-bold">${o.studentInfo}</span>
             </div>
-            <div class="text-xs text-gray-600 mb-3">${o.items.map(i => `<div>・${i.name}</div>`).join('')}</div>
-            <button onclick="window.updateStatus('${o.id}', 'ready')" class="w-full bg-orange-500 text-white font-bold py-2 rounded-lg text-xs">
+            <div class="flex justify-between items-center text-xs text-gray-600">
+              <div>${o.items.map(i => `<span>・${i.name} (¥${i.price})</span>`).join('')}</div>
+              <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
+            </div>
+            <button onclick="window.updateStatus('${o.id}', 'ready')" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition">
               🔔 呼び出し通知を送る
             </button>
           </div>
@@ -90,12 +96,16 @@
 
       readyContainer.innerHTML = readyOrders.length === 0 ? '<p class="text-xs text-gray-400 py-4 text-center">呼び出し中なし</p>' : 
         readyOrders.map(o => `
-          <div class="border-l-4 border-green-500 bg-green-50/50 p-3 rounded-r-lg border shadow-sm">
-            <div class="flex justify-between items-center mb-1">
+          <div class="border-l-4 border-green-500 bg-green-50/50 p-3 rounded-r-lg border shadow-sm space-y-2">
+            <div class="flex justify-between items-center">
               <span class="text-2xl font-black text-green-700">${o.orderNumber}</span>
-              <span class="bg-green-200 text-green-900 text-xs px-2 py-0.5 rounded font-bold">${o.studentInfo}</span>
+              <span class="bg-green-200 text-green-900 text-xs px-2 py-1 rounded font-bold">${o.studentInfo}</span>
             </div>
-            <button onclick="window.updateStatus('${o.id}', 'completed')" class="w-full bg-green-600 text-white font-bold py-2 rounded-lg text-xs mt-2">
+            <div class="flex justify-between items-center text-xs text-gray-600">
+              <div>${o.items.map(i => `<span>・${i.name}</span>`).join('')}</div>
+              <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
+            </div>
+            <button onclick="window.updateStatus('${o.id}', 'completed')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs transition">
               ✅ 提供完了
             </button>
           </div>
