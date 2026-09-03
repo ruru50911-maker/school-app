@@ -51,9 +51,9 @@
       </section>
     </div>
 
-    <!-- タブ2: メニュー管理（売り切れ設定・価格変更） -->
+    <!-- タブ2: メニュー管理（売り切れ設定・価格変更・削除） -->
     <div id="tabMenu" class="hidden bg-white p-6 rounded-xl border shadow-sm">
-      <h2 class="text-md font-bold mb-4 text-gray-800">🍔 商品一覧・売り切れ / 価格設定</h2>
+      <h2 class="text-md font-bold mb-4 text-gray-800">🍔 商品一覧・売り切れ / 価格 / 削除</h2>
       <div id="menuList" class="space-y-3">
         <p class="text-xs text-gray-400 py-4 text-center">読み込み中...</p>
       </div>
@@ -96,9 +96,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // --------------------------------------------------
-    // タブ切り替え制御
-    // --------------------------------------------------
+    // タブ切り替え
     window.switchTab = (tabName) => {
       const tabs = ['orders', 'menu', 'add'];
       tabs.forEach(t => {
@@ -117,9 +115,7 @@
       });
     };
 
-    // --------------------------------------------------
-    // 注文ステータス更新・削除
-    // --------------------------------------------------
+    // 注文ステータス更新・消去
     window.updateStatus = (orderId, newStatus) => {
       update(ref(db, `orders/${orderId}`), { status: newStatus });
     };
@@ -131,9 +127,7 @@
       }
     });
 
-    // --------------------------------------------------
-    // リアルタイム注文同期
-    // --------------------------------------------------
+    // 注文リストリアルタイム表示
     onValue(ref(db, 'orders'), (snapshot) => {
       const data = snapshot.val() || {};
       const preparingContainer = document.getElementById('preparingList');
@@ -184,7 +178,7 @@
     });
 
     // --------------------------------------------------
-    // メニュー管理（リアルタイム同期＆操作）
+    // メニュー管理（売り切れ・価格変更・商品削除）
     // --------------------------------------------------
     window.toggleSoldOut = (menuId, currentStatus) => {
       update(ref(db, `menu/${menuId}`), { isSoldOut: !currentStatus });
@@ -200,6 +194,15 @@
       update(ref(db, `menu/${menuId}`), { price: newPrice }).then(() => {
         alert("価格を更新しました。");
       });
+    };
+
+    // 商品削除処理関数
+    window.deleteProduct = (menuId, productName) => {
+      if (confirm(`「${productName}」を完全に削除しますか？`)) {
+        remove(ref(db, `menu/${menuId}`)).then(() => {
+          alert("商品を削除しました。");
+        });
+      }
     };
 
     onValue(ref(db, 'menu'), (snapshot) => {
@@ -229,15 +232,16 @@
               <button onclick="window.toggleSoldOut('${key}', ${isSoldOut})" class="text-xs px-3 py-1.5 rounded font-bold text-white ${isSoldOut ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-600 hover:bg-emerald-700'}">
                 ${isSoldOut ? '売り切れ中' : '販売中'}
               </button>
+              <button onclick="window.deleteProduct('${key}', '${item.name}')" class="bg-gray-200 hover:bg-red-100 text-red-600 text-xs px-2.5 py-1.5 rounded font-bold transition">
+                🗑 削除
+              </button>
             </div>
           </div>
         `;
       }).join('');
     });
 
-    // --------------------------------------------------
     // 新商品追加処理
-    // --------------------------------------------------
     document.getElementById('addProductForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const nameInput = document.getElementById('newProductName');
