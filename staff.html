@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学食管理 - スタッフ画面</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans min-h-screen flex flex-col">
+
+  <header class="bg-emerald-700 text-white p-4 flex justify-between items-center shadow-md">
+    <h1 class="font-bold text-lg">⚙️ 学食スタッフ管理画面</h1>
+    <button onclick="clearAllData()" class="bg-emerald-900 hover:bg-emerald-950 text-xs px-3 py-1.5 rounded text-emerald-100">
+      注文データ初期化
+    </button>
+  </header>
+
+  <main class="flex-1 max-w-4xl w-full mx-auto p-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- 調理中 -->
+      <section class="bg-white p-4 rounded-xl border shadow-sm">
+        <h2 class="text-md font-bold mb-3 text-orange-600 flex items-center justify-between">
+          <span>🍳 調理中</span>
+          <span id="countPreparing" class="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+        </h2>
+        <div id="preparingList" class="space-y-3"></div>
+      </section>
+
+      <!-- 呼び出し中 -->
+      <section class="bg-white p-4 rounded-xl border shadow-sm">
+        <h2 class="text-md font-bold mb-3 text-green-600 flex items-center justify-between">
+          <span>🔔 呼び出し中</span>
+          <span id="countReady" class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+        </h2>
+        <div id="readyList" class="space-y-3"></div>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    function updateStatus(orderId, newStatus) {
+      const orders = JSON.parse(localStorage.getItem('cafeteria_orders') || '[]');
+      const ord = orders.find(o => o.id === orderId);
+      if (ord) {
+        ord.status = newStatus;
+        localStorage.setItem('cafeteria_orders', JSON.stringify(orders));
+        renderStaffView();
+      }
+    }
+
+    function clearAllData() {
+      if (confirm("すべての注文データを削除しますか？")) {
+        localStorage.removeItem('cafeteria_orders');
+        localStorage.removeItem('current_student_order_id');
+        renderStaffView();
+      }
+    }
+
+    function renderStaffView() {
+      const orders = JSON.parse(localStorage.getItem('cafeteria_orders') || '[]');
+      const preparingContainer = document.getElementById('preparingList');
+      const readyContainer = document.getElementById('readyList');
+
+      const preparingOrders = orders.filter(o => o.status === 'preparing');
+      const readyOrders = orders.filter(o => o.status === 'ready');
+
+      document.getElementById('countPreparing').innerText = preparingOrders.length;
+      document.getElementById('countReady').innerText = readyOrders.length;
+
+      if (preparingOrders.length === 0) {
+        preparingContainer.innerHTML = `<p class="text-xs text-gray-400 py-4 text-center">調理待ちの注文はありません</p>`;
+      } else {
+        preparingContainer.innerHTML = preparingOrders.map(o => `
+          <div class="border-l-4 border-orange-500 bg-orange-50/50 p-3 rounded-r-lg border border-gray-200 shadow-sm">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-xl font-black text-gray-800">${o.orderNumber}</span>
+              <span class="bg-orange-200 text-orange-900 text-xs px-2 py-0.5 rounded font-bold">${o.studentInfo}</span>
+            </div>
+            <div class="text-xs text-gray-600 mb-3">
+              ${o.items.map(i => `<div>・${i.name}</div>`).join('')}
+            </div>
+            <button onclick="updateStatus('${o.id}', 'ready')" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs shadow transition">
+              🔔 呼び出し通知を送る
+            </button>
+          </div>
+        `).join('');
+      }
+
+      if (readyOrders.length === 0) {
+        readyContainer.innerHTML = `<p class="text-xs text-gray-400 py-4 text-center">呼び出し中の注文はありません</p>`;
+      } else {
+        readyContainer.innerHTML = readyOrders.map(o => `
+          <div class="border-l-4 border-green-500 bg-green-50/50 p-3 rounded-r-lg border border-gray-200 shadow-sm">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-2xl font-black text-green-700">${o.orderNumber}</span>
+              <span class="bg-green-200 text-green-900 text-xs px-2 py-0.5 rounded font-bold">${o.studentInfo}</span>
+            </div>
+            <button onclick="updateStatus('${o.id}', 'completed')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs shadow transition mt-2">
+              ✅ 提供完了（リストから消去）
+            </button>
+          </div>
+        `).join('');
+      }
+    }
+
+    renderStaffView();
+    setInterval(renderStaffView, 2000);
+  </script>
+</body>
+</html>
