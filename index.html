@@ -18,10 +18,10 @@
   </header>
 
   <main class="flex-1 max-w-4xl w-full mx-auto p-4 pb-24">
-    <!-- Active Orders List (複数注文に対応) -->
+    <!-- Active Orders Container (複数注文を並べて表示) -->
     <div id="activeOrdersContainer" class="space-y-4 mb-6"></div>
 
-    <!-- User Information Form -->
+    <!-- User Information Section -->
     <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6">
       <h2 class="text-md font-bold mb-3 text-gray-800">👤 利用者情報（必須）</h2>
       <div class="grid grid-cols-3 gap-2">
@@ -46,7 +46,7 @@
       </div>
     </div>
 
-    <!-- Menu Selection Section -->
+    <!-- Menu Section -->
     <div id="menuSection">
       <h2 class="text-lg font-bold mb-3 text-gray-800">🍱 メニュー選択</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="menuList"></div>
@@ -66,23 +66,23 @@
     </div>
   </div>
 
-  <!-- Payment Selection Modal -->
+  <!-- Payment Modal -->
   <div id="paymentModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
-      <h3 class="text-lg font-bold text-center text-gray-800">決済方法の選択</h3>
-      <p class="text-xs text-gray-500 text-center">お支払い方法を選択して注文を確定してください。</p>
+      <h3 class="text-lg font-bold text-center text-gray-800">決済方法を選択</h3>
+      <p class="text-xs text-gray-500 text-center">お支払い方法を選択して注文を確定します。</p>
 
       <div class="space-y-3">
-        <!-- PayPay Button -->
-        <button onclick="window.confirmOrder('PayPay')" class="w-full bg-red-500 hover:bg-red-600 active:scale-95 text-white font-bold py-3 px-4 rounded-xl shadow flex items-center justify-between transition">
-          <span class="text-lg">PayPayでお支払い</span>
-          <span class="text-xs bg-white/20 px-2 py-1 rounded">赤い画面</span>
+        <!-- PayPay (Red Pop) -->
+        <button onclick="window.confirmOrder('PayPay')" class="w-full bg-red-500 hover:bg-red-600 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-between transition">
+          <span class="text-lg">PayPay で支払う</span>
+          <span class="text-xs bg-white/20 px-2.5 py-1 rounded-full font-normal">赤い画面</span>
         </button>
 
-        <!-- au PAY Button -->
-        <button onclick="window.confirmOrder('au PAY')" class="w-full bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold py-3 px-4 rounded-xl shadow flex items-center justify-between transition">
-          <span class="text-lg">au PAYでお支払い</span>
-          <span class="text-xs bg-white/20 px-2 py-1 rounded">オレンジ画面</span>
+        <!-- au PAY (Orange Pop) -->
+        <button onclick="window.confirmOrder('au PAY')" class="w-full bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg flex items-center justify-between transition">
+          <span class="text-lg">au PAY で支払う</span>
+          <span class="text-xs bg-white/20 px-2.5 py-1 rounded-full font-normal">オレンジ画面</span>
         </button>
       </div>
 
@@ -109,16 +109,14 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // メニュー（冷やしうどんのみ）
+    // メニュー（冷やしうどん 360円 のみ）
     const MENU_ITEMS = [
       { id: 1, name: '冷やしうどん', price: 360, emoji: '🍜' }
     ];
 
     let cart = [];
-    // 過去の注文IDリストをローカルストレージで配列管理
     let myOrderIds = JSON.parse(localStorage.getItem('firebase_student_order_ids') || '[]');
 
-    // ドロップダウンの初期化
     const gradeSel = document.getElementById('gradeSelect');
     const classSel = document.getElementById('classSelect');
     const numSel = document.getElementById('numberSelect');
@@ -127,7 +125,6 @@
     for (let i = 1; i <= 9; i++) classSel.innerHTML += `<option value="${i}">${i}組</option>`;
     for (let i = 1; i <= 42; i++) numSel.innerHTML += `<option value="${i}">${i}番</option>`;
 
-    // メニュー描画
     const list = document.getElementById('menuList');
     list.innerHTML = MENU_ITEMS.map(item => `
       <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
@@ -138,7 +135,7 @@
             <p class="text-blue-600 font-semibold">¥${item.price}</p>
           </div>
         </div>
-        <button onclick="window.addToCart(${item.id})" class="bg-blue-50 text-blue-600 font-bold px-4 py-2 rounded-lg text-sm">
+        <button onclick="window.addToCart(${item.id})" class="bg-blue-50 text-blue-600 font-bold px-4 py-2 rounded-lg text-sm hover:bg-blue-100">
           ＋ 追加
         </button>
       </div>
@@ -157,11 +154,10 @@
       document.getElementById('cartTotal').innerText = `¥${cart.reduce((sum, item) => sum + item.price, 0)}`;
     }
 
-    // 決済モーダルの開閉制御
     const modal = document.getElementById('paymentModal');
     document.getElementById('openPaymentBtn').addEventListener('click', () => {
       if (!gradeSel.value || !classSel.value || !numSel.value) {
-        alert('学年、クラス、出席番号をすべて選択してください。');
+        alert('学年・クラス・出席番号を選択してください。');
         return;
       }
       modal.classList.remove('hidden');
@@ -171,7 +167,6 @@
       modal.classList.add('hidden');
     });
 
-    // 注文確定処理
     window.confirmOrder = (paymentMethod) => {
       if (cart.length === 0) return;
 
@@ -195,7 +190,6 @@
       listenMyOrders();
     };
 
-    // 自分の全注文をリアルタイム監視・全件表示
     function listenMyOrders() {
       if (myOrderIds.length === 0) return;
       onValue(ref(db, 'orders'), (snapshot) => {
@@ -212,7 +206,7 @@
             card.innerHTML = `
               <div class="flex justify-between text-xs text-gray-500 mb-1">
                 <span>注文者：${order.studentInfo}</span>
-                <span class="font-bold">${order.paymentMethod || '未選択'}決済</span>
+                <span class="font-bold text-gray-700">${order.paymentMethod || '未選択'}決済</span>
               </div>
               <h3 class="text-xl font-bold mb-3 ${isReady ? 'text-green-700' : 'text-blue-600'}">
                 ${isReady ? '🎉 料理の準備ができました！' : '⏳ 調理中です...'}
