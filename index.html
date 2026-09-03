@@ -64,7 +64,9 @@
     <!-- メニュー選択 -->
     <div id="menuSection">
       <h2 class="text-lg font-bold mb-3 text-gray-800">🍱 メニュー選択</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="menuList"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="menuList">
+        <p class="text-xs text-gray-400 py-4 col-span-2 text-center">メニューを読み込み中...</p>
+      </div>
     </div>
   </main>
 
@@ -146,10 +148,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const MENU_ITEMS = [
-      { id: 1, name: '冷やしうどん', price: 360, emoji: '🍜' }
-    ];
-
+    let menuItems = {};
     let cart = [];
     let myOrderIds = JSON.parse(localStorage.getItem('firebase_student_order_ids') || '[]');
 
@@ -194,26 +193,44 @@
     if (savedUserInfo.pin) pinInput.value = savedUserInfo.pin;
     checkUserStatus();
 
-    // メニュー生成
-    const list = document.getElementById('menuList');
-    list.innerHTML = MENU_ITEMS.map(item => `
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-          <span class="text-3xl">${item.emoji}</span>
-          <div>
-            <p class="font-bold text-gray-800">${item.name}</p>
-            <p class="text-blue-600 font-semibold">¥${item.price}</p>
-          </div>
-        </div>
-        <button onclick="window.addToCart(${item.id})" class="bg-blue-50 text-blue-600 font-bold px-4 py-2 rounded-lg text-sm hover:bg-blue-100">
-          ＋ 追加
-        </button>
-      </div>
-    `).join('');
+    // データベースからメニューをリアルタイム取得して表示
+    onValue(ref(db, 'menu'), (snapshot) => {
+      menuItems = snapshot.val() || {};
+      const list = document.getElementById('menuList');
+      const keys = Object.keys(menuItems);
 
-    window.addToCart = (itemId) => {
-      const item = MENU_ITEMS.find(i => i.id === itemId);
-      if (item) { cart.push(item); updateCartUI(); }
+      if (keys.length === 0) {
+        list.innerHTML = '<p class="text-xs text-gray-400 py-4 col-span-2 text-center">現在利用可能なメニューがありません。</p>';
+        return;
+      }
+
+      list.innerHTML = keys.map(key => {
+        const item = menuItems[key];
+        const isSoldOut = item.isSoldOut || false;
+        return `
+          <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center ${isSoldOut ? 'opacity-60 bg-gray-50' : ''}">
+            <div class="flex items-center gap-3">
+              <span class="text-3xl">${item.emoji || '🍱'}</span>
+              <div>
+                <p class="font-bold text-gray-800">${item.name}</p>
+                <p class="text-blue-600 font-semibold">¥${item.price}</p>
+              </div>
+            </div>
+            ${isSoldOut ? 
+              `<span class="bg-gray-300 text-gray-600 font-bold px-3 py-1.5 rounded-lg text-xs">売り切れ</span>` : 
+              `<button onclick="window.addToCart('${key}')" class="bg-blue-50 text-blue-600 font-bold px-4 py-2 rounded-lg text-sm hover:bg-blue-100">＋ 追加</button>`
+            }
+          </div>
+        `;
+      }).join('');
+    });
+
+    window.addToCart = (menuId) => {
+      const item = menuItems[menuId];
+      if (item && !item.isSoldOut) {
+        cart.push({ id: menuId, name: item.name, price: item.price });
+        updateCartUI();
+      }
     };
 
     function updateCartUI() {
@@ -245,7 +262,6 @@
         return alert('暗証番号（PIN）が一致しません。');
       }
 
-      // 初期パスワードのままの場合は変更モーダルを表示
       if (userData.isInitial) {
         changePinModal.classList.remove('hidden');
       } else {
@@ -253,7 +269,6 @@
       }
     });
 
-    // 初期パスワードの変更保存処理
     document.getElementById('saveNewPinBtn').addEventListener('click', async () => {
       const newPin = document.getElementById('newPinInput').value.trim();
       const confirmNewPin = document.getElementById('confirmNewPinInput').value.trim();
@@ -375,7 +390,7 @@
                 <span class="text-5xl font-black ${isReady ? 'text-green-600' : 'text-gray-800'}">${order.orderNumber}</span>
               </div>
               <div class="text-xs text-gray-600 mt-2">
-                ${order.items.map(i => `<div>${i.name} (¥${i.price})</div>`).join('')}
+                ${(order.items || []).map(i => `<div>${i.name} (¥${i.price})</div>`).join('')}
               </div>
             `;
             container.appendChild(card);
