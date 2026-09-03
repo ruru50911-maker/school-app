@@ -3,41 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>学食管理 - スタッフ画面</title>
+  <title>学食厨房・スタッフ専用画面</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 text-gray-900 font-sans min-h-screen flex flex-col">
+<body class="bg-gray-100 text-gray-900 font-sans min-h-screen">
 
-  <header class="bg-emerald-700 text-white p-4 flex justify-between items-center shadow-md">
-    <h1 class="font-bold text-lg">⚙️ 学食スタッフ管理画面（リアルタイム）</h1>
-    <button id="clearBtn" class="bg-emerald-900 hover:bg-emerald-950 text-xs px-3 py-1.5 rounded text-emerald-100">
-      全注文消去
-    </button>
+  <header class="bg-emerald-700 text-white p-4 shadow-md sticky top-0 z-40 flex justify-between items-center">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">🍳</span>
+      <h1 class="font-bold text-lg md:text-xl">学食厨房・スタッフコントロールパネル</h1>
+    </div>
+    <span id="kitchenBadge" class="bg-emerald-800 text-white text-xs px-3 py-1.5 rounded-full font-bold">稼働中</span>
   </header>
 
-  <main class="flex-1 max-w-4xl w-full mx-auto p-4">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <section class="bg-white p-4 rounded-xl border shadow-sm">
-        <h2 class="text-md font-bold mb-3 text-orange-600 flex justify-between">
-          <span>🍳 調理中</span>
-          <span id="countPreparing" class="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded-full">0</span>
-        </h2>
-        <div id="preparingList" class="space-y-3"></div>
-      </section>
+  <main class="max-w-7xl mx-auto p-4 space-y-6 pb-16">
+    
+    <!-- タブ切り替え -->
+    <div class="flex border-b border-gray-200 bg-white rounded-xl p-1 shadow-sm">
+      <button id="tabKitchenOrdersBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-emerald-600 text-white transition">
+        📋 リアルタイム調理・呼出一覧
+      </button>
 
-      <section class="bg-white p-4 rounded-xl border shadow-sm">
-        <h2 class="text-md font-bold mb-3 text-green-600 flex justify-between">
-          <span>🔔 呼び出し中</span>
-          <span id="countReady" class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">0</span>
-        </h2>
-        <div id="readyList" class="space-y-3"></div>
-      </section>
+      <button id="tabSoldOutBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition">
+        🚫 【1-2】品切れ（売り切れ）設定
+      </button>
     </div>
+
+    <!-- 調理・呼出セクション -->
+    <section id="kitchenOrdersSection" class="space-y-4">
+      <div class="flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-800">調理待ち・呼出中一覧</h2>
+        <span id="activeOrderCount" class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full">0 件</span>
+      </div>
+      <div id="kitchenOrdersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- 【1-2】品切れ設定セクション -->
+    <section id="soldOutSection" class="hidden space-y-4 max-w-2xl">
+      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
+        <div>
+          <h2 class="text-lg font-bold text-gray-800">メニュー品切れ（売り切れ）オン/オフ</h2>
+          <p class="text-xs text-gray-500">スイッチをOFFにすると生徒画面で「売り切れ」となり注文できなくなります。</p>
+        </div>
+        <div id="menuStockList" class="divide-y divide-gray-100"></div>
+      </div>
+    </section>
+
   </main>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAZ53Gowy1BoIXT5nGLC_MdFJ3vpfqiGp0",
@@ -52,65 +68,136 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    window.updateStatus = (orderId, newStatus) => {
+    const DEFAULT_MENUS = [
+      { id: "m1", name: "日替わり学食定食", price: 450 },
+      { id: "m2", name: "特製カレーライス", price: 380 },
+      { id: "m3", name: "自家製醤油ラーメン", price: 400 },
+      { id: "m4", name: "きつねうどん・そば", price: 320 }
+    ];
+
+    const tabKitchenOrdersBtn = document.getElementById('tabKitchenOrdersBtn');
+    const tabSoldOutBtn = document.getElementById('tabSoldOutBtn');
+    const kitchenOrdersSection = document.getElementById('kitchenOrdersSection');
+    const soldOutSection = document.getElementById('soldOutSection');
+
+    tabKitchenOrdersBtn.addEventListener('click', () => {
+      tabKitchenOrdersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-emerald-600 text-white transition";
+      tabSoldOutBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
+      kitchenOrdersSection.classList.remove('hidden');
+      soldOutSection.classList.add('hidden');
+    });
+
+    tabSoldOutBtn.addEventListener('click', () => {
+      tabSoldOutBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-emerald-600 text-white transition";
+      tabKitchenOrdersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
+      soldOutSection.classList.remove('hidden');
+      kitchenOrdersSection.classList.add('hidden');
+    });
+
+    listenToOrders();
+    listenToStockStatus();
+
+    function listenToOrders() {
+      onValue(ref(db, 'orders'), (snapshot) => {
+        const data = snapshot.val() || {};
+        const grid = document.getElementById('kitchenOrdersGrid');
+        const badge = document.getElementById('activeOrderCount');
+        grid.innerHTML = '';
+
+        const activeKeys = Object.keys(data).filter(k => data[k].status === 'cooking' || data[k].status === 'ready').reverse();
+        badge.innerText = `${activeKeys.length} 件`;
+
+        if (activeKeys.length === 0) {
+          grid.innerHTML = '<p class="text-gray-400 text-sm col-span-full text-center py-12">現在受付中の注文はありません</p>';
+          return;
+        }
+
+        activeKeys.forEach(key => {
+          const order = data[key];
+          const isReady = order.status === 'ready';
+
+          const card = document.createElement('div');
+          card.className = `bg-white p-5 rounded-2xl border shadow-sm flex flex-col justify-between ${isReady ? 'border-emerald-500 bg-emerald-50/40' : 'border-gray-200'}`;
+
+          card.innerHTML = `
+            <div>
+              <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-bold px-2.5 py-1 rounded-full ${isReady ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                  ${isReady ? '呼出中（調理完了）' : '🍳 調理中'}
+                </span>
+                <span class="text-xs text-gray-400">${new Date(order.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+              </div>
+              <div class="my-2">
+                <span class="text-xs text-gray-400 block">受取番号</span>
+                <span class="text-4xl font-black text-gray-800">${order.orderNumber}</span>
+              </div>
+              <p class="text-xs font-bold text-gray-600 mb-3">👤 ${order.studentInfo}</p>
+              <div class="text-sm bg-gray-50 p-3 rounded-xl border border-gray-100 mb-4 space-y-1">
+                ${order.items.map(i => `<div class="flex justify-between"><span>${i.name} ${i.option ? `<span class="text-xs text-blue-600 font-bold">(${i.option})</span>` : ''}</span><span class="font-semibold">¥${i.price}</span></div>`).join('')}
+              </div>
+            </div>
+            <div class="flex flex-col gap-2">
+              <div class="flex gap-2">
+                ${!isReady ? `
+                  <button onclick="window.updateOrderStatus('${key}', 'ready')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl shadow transition">
+                    調理完了・呼び出し
+                  </button>
+                ` : `
+                  <button onclick="window.updateOrderStatus('${key}', 'completed')" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white text-xs font-bold py-2.5 rounded-xl shadow transition">
+                    受け渡し完了
+                  </button>
+                `}
+              </div>
+              <!-- 【1-1】注文のキャンセル処理 -->
+              <button onclick="window.cancelOrder('${key}')" class="w-full text-center text-xs text-red-500 hover:text-red-700 font-bold py-1">
+                ⚠️ この注文をキャンセル・返金処理
+              </button>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      });
+    }
+
+    window.updateOrderStatus = (orderId, newStatus) => {
       update(ref(db, `orders/${orderId}`), { status: newStatus });
     };
 
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      if (confirm("すべての注文データを削除しますか？カウンターもリセットされます。")) {
-        remove(ref(db, 'orders'));
-        remove(ref(db, 'orderCounter'));
+    // 【1-1】キャンセル実行
+    window.cancelOrder = (orderId) => {
+      if (confirm('この注文を取り消し（返金処理）しますか？')) {
+        update(ref(db, `orders/${orderId}`), { status: 'cancelled' });
       }
-    });
+    };
 
-    onValue(ref(db, 'orders'), (snapshot) => {
-      const data = snapshot.val() || {};
-      const preparingContainer = document.getElementById('preparingList');
-      const readyContainer = document.getElementById('readyList');
+    // 【1-2】品切れトグルスイッチ
+    function listenToStockStatus() {
+      onValue(ref(db, 'menuStock'), (snapshot) => {
+        const stockData = snapshot.val() || {};
+        const container = document.getElementById('menuStockList');
+        container.innerHTML = '';
 
-      const orders = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-      orders.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-      const preparingOrders = orders.filter(o => o.status === 'preparing');
-      const readyOrders = orders.filter(o => o.status === 'ready');
-
-      document.getElementById('countPreparing').innerText = preparingOrders.length;
-      document.getElementById('countReady').innerText = readyOrders.length;
-
-      preparingContainer.innerHTML = preparingOrders.length === 0 ? '<p class="text-xs text-gray-400 py-4 text-center">調理待ちなし</p>' : 
-        preparingOrders.map(o => `
-          <div class="border-l-4 border-orange-500 bg-orange-50/50 p-3 rounded-r-lg border shadow-sm space-y-2">
-            <div class="flex justify-between items-center">
-              <span class="text-2xl font-black text-gray-800">${o.orderNumber}</span>
-              <span class="bg-orange-200 text-orange-900 text-xs px-2 py-1 rounded font-bold">${o.studentInfo}</span>
+        DEFAULT_MENUS.forEach(menu => {
+          const isAvailable = stockData[menu.id] !== false;
+          const row = document.createElement('div');
+          row.className = "flex justify-between items-center py-3";
+          row.innerHTML = `
+            <div>
+              <span class="font-bold text-gray-800 block">${menu.name}</span>
+              <span class="text-xs text-gray-500">¥${menu.price}</span>
             </div>
-            <div class="flex justify-between items-center text-xs text-gray-600">
-              <div>${o.items.map(i => `<span>・${i.name} (¥${i.price})</span>`).join('')}</div>
-              <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
-            </div>
-            <button onclick="window.updateStatus('${o.id}', 'ready')" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition">
-              🔔 呼び出し通知を送る
+            <button onclick="window.toggleStock('${menu.id}', ${!isAvailable})" class="px-4 py-1.5 rounded-lg text-xs font-bold transition ${isAvailable ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}">
+              ${isAvailable ? '販売中（タップで売り切れ）' : '売り切れ（タップで販売再開）'}
             </button>
-          </div>
-        `).join('');
+          `;
+          container.appendChild(row);
+        });
+      });
+    }
 
-      readyContainer.innerHTML = readyOrders.length === 0 ? '<p class="text-xs text-gray-400 py-4 text-center">呼び出し中なし</p>' : 
-        readyOrders.map(o => `
-          <div class="border-l-4 border-green-500 bg-green-50/50 p-3 rounded-r-lg border shadow-sm space-y-2">
-            <div class="flex justify-between items-center">
-              <span class="text-2xl font-black text-green-700">${o.orderNumber}</span>
-              <span class="bg-green-200 text-green-900 text-xs px-2 py-1 rounded font-bold">${o.studentInfo}</span>
-            </div>
-            <div class="flex justify-between items-center text-xs text-gray-600">
-              <div>${o.items.map(i => `<span>・${i.name}</span>`).join('')}</div>
-              <span class="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-semibold">${o.paymentMethod || '未選択'}</span>
-            </div>
-            <button onclick="window.updateStatus('${o.id}', 'completed')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs transition">
-              ✅ 提供完了
-            </button>
-          </div>
-        `).join('');
-    });
+    window.toggleStock = (menuId, isAvailable) => {
+      update(ref(db, 'menuStock'), { [menuId]: isAvailable });
+    };
   </script>
 </body>
 </html>
