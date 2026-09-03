@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>学食オーダー 全体管理画面</title>
+  <title>学食オーダー管理画面</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans min-h-screen">
 
+  <!-- 管理者ログインモーダル -->
   <div id="authOverlay" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
       <div class="text-center">
         <span class="text-4xl">🔐</span>
-        <h2 class="text-xl font-bold text-gray-800 mt-2">全体管理者ログイン</h2>
+        <h2 class="text-xl font-bold text-gray-800 mt-2">管理者ログイン</h2>
         <p class="text-xs text-gray-500 mt-1">管理用パスワードを入力してください</p>
       </div>
       <div>
@@ -28,7 +29,7 @@
     <header class="bg-gray-800 text-white p-4 shadow-md sticky top-0 z-40 flex justify-between items-center">
       <div class="flex items-center gap-2">
         <span class="text-2xl">🍱</span>
-        <h1 class="font-bold text-lg md:text-xl">学食モバイルオーダー 全体管理</h1>
+        <h1 class="font-bold text-lg md:text-xl">学食モバイルオーダー 管理ダッシュボード</h1>
       </div>
       <button id="adminLogoutBtn" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded-lg border border-gray-500 transition">
         ログアウト
@@ -36,24 +37,34 @@
     </header>
 
     <main class="max-w-7xl mx-auto p-4 space-y-6 pb-16">
+      
+      <!-- タブ切り替え -->
       <div class="flex border-b border-gray-200 bg-white rounded-xl p-1 shadow-sm">
-        <button id="tabUsersBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition">
-          👥 生徒PINマスター管理
+        <button id="tabOrdersBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition">
+          📋 注文リアルタイム管理
         </button>
-        <button id="tabAnalyticsBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition">
-          📊 【1-3】売上・注文集計
-        </button>
-        <button id="tabSettingsBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition">
-          ⚙️ 【1-5】受付時間設定
+        <button id="tabUsersBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition">
+          👥 生徒パスワード（PIN）マスター管理
         </button>
       </div>
 
-      <!-- 生徒マスター管理 -->
-      <section id="usersSection" class="space-y-4">
+      <!-- セクション1: 注文管理 -->
+      <section id="ordersSection" class="space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-bold text-gray-800">受付中のお呼び出し・注文一覧</h2>
+          <span id="orderCountBadge" class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">0 件</span>
+        </div>
+        <div id="ordersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- セクション2: 全生徒パスワードマスター管理 -->
+      <section id="usersSection" class="hidden space-y-4">
+        
+        <!-- 一括初期化・出力ツール -->
         <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
           <h3 class="font-bold text-sm text-amber-900">⚙️ 全生徒データの個別ランダム初期化・一括発行</h3>
           <p class="text-xs text-amber-800">
-            全クラス（1〜3年 × 1〜9組 × 1〜42番 = 計1,134名分）にそれぞれ異なるランダムな4桁初期PINを発行します。
+            全クラス（1〜3年 × 1〜9組 × 1〜42番 = 計1,134名分）にそれぞれ異なるランダムな4桁初期PINを発行します。発行完了後、配布用のリスト（CSV）をダウンロードできます。
           </p>
           <div class="flex flex-wrap items-center gap-3">
             <button id="bulkInitRandomBtn" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow">
@@ -66,7 +77,10 @@
         </div>
 
         <div class="flex justify-between items-center">
-          <h2 class="text-lg font-bold text-gray-800">全生徒パスワード一覧</h2>
+          <div>
+            <h2 class="text-lg font-bold text-gray-800">全生徒パスワード一覧</h2>
+            <p class="text-xs text-gray-500">生徒が各自変更したパスワードもここで確認・リセットできます</p>
+          </div>
           <span id="userCountBadge" class="bg-gray-200 text-gray-800 text-xs font-bold px-3 py-1 rounded-full">0 名</span>
         </div>
 
@@ -88,58 +102,6 @@
         </div>
       </section>
 
-      <!-- 【1-3】売上・注文集計ダッシュボード -->
-      <section id="analyticsSection" class="hidden space-y-4">
-        <h2 class="text-lg font-bold text-gray-800">本日の注文・売上レポート</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-            <span class="text-xs text-gray-500 font-bold block">総注文数</span>
-            <span id="statTotalOrders" class="text-3xl font-black text-blue-600">0 件</span>
-          </div>
-          <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-            <span class="text-xs text-gray-500 font-bold block">本日の売上合計</span>
-            <span id="statTotalSales" class="text-3xl font-black text-emerald-600">¥0</span>
-          </div>
-          <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-            <span class="text-xs text-gray-500 font-bold block">一番人気メニュー</span>
-            <span id="statTopItem" class="text-xl font-bold text-amber-600">-</span>
-          </div>
-        </div>
-
-        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-          <h3 class="font-bold text-sm text-gray-700 mb-3">メニュー別販売実績一覧</h3>
-          <div id="salesByMenu" class="space-y-2 text-sm divide-y"></div>
-        </div>
-      </section>
-
-      <!-- 【1-5】注文受付時間設定 -->
-      <section id="settingsSection" class="hidden space-y-4 max-w-xl">
-        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
-          <h2 class="text-lg font-bold text-gray-800">注文受付時間の管理設定</h2>
-          <p class="text-xs text-gray-500">指定した時間帯以外は、生徒からの注文が自動的にロックされます。</p>
-
-          <div class="flex items-center gap-2">
-            <input type="checkbox" id="orderTimeEnabled" class="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-            <label for="orderTimeEnabled" class="text-sm font-bold text-gray-700">時間制限ルールを有効化する</label>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="text-xs font-bold text-gray-600 block mb-1">受付開始時刻</label>
-              <input type="time" id="orderStartTime" class="w-full bg-gray-50 border rounded-lg p-2.5 text-sm font-bold">
-            </div>
-            <div>
-              <label class="text-xs font-bold text-gray-600 block mb-1">受付終了時刻</label>
-              <input type="time" id="orderEndTime" class="w-full bg-gray-50 border rounded-lg p-2.5 text-sm font-bold">
-            </div>
-          </div>
-
-          <button id="saveSettingsBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow transition">
-            設定を保存する
-          </button>
-        </div>
-      </section>
-
     </main>
   </div>
 
@@ -158,6 +120,7 @@
     };
 
     const ADMIN_PASSWORD = "admin1234";
+
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
@@ -167,13 +130,10 @@
     const adminLoginBtn = document.getElementById('adminLoginBtn');
     const adminLogoutBtn = document.getElementById('adminLogoutBtn');
 
+    const tabOrdersBtn = document.getElementById('tabOrdersBtn');
     const tabUsersBtn = document.getElementById('tabUsersBtn');
-    const tabAnalyticsBtn = document.getElementById('tabAnalyticsBtn');
-    const tabSettingsBtn = document.getElementById('tabSettingsBtn');
-
+    const ordersSection = document.getElementById('ordersSection');
     const usersSection = document.getElementById('usersSection');
-    const analyticsSection = document.getElementById('analyticsSection');
-    const settingsSection = document.getElementById('settingsSection');
 
     adminLoginBtn.addEventListener('click', () => {
       if (adminPassInput.value === ADMIN_PASSWORD) {
@@ -187,54 +147,177 @@
 
     adminLogoutBtn.addEventListener('click', () => { location.reload(); });
 
+    tabOrdersBtn.addEventListener('click', () => {
+      tabOrdersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition";
+      tabUsersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
+      ordersSection.classList.remove('hidden');
+      usersSection.classList.add('hidden');
+    });
+
     tabUsersBtn.addEventListener('click', () => {
       tabUsersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition";
-      tabAnalyticsBtn.className = tabSettingsBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
+      tabOrdersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
       usersSection.classList.remove('hidden');
-      analyticsSection.classList.add('hidden');
-      settingsSection.classList.add('hidden');
-    });
-
-    tabAnalyticsBtn.addEventListener('click', () => {
-      tabAnalyticsBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition";
-      tabUsersBtn.className = tabSettingsBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
-      analyticsSection.classList.remove('hidden');
-      usersSection.classList.add('hidden');
-      settingsSection.classList.add('hidden');
-    });
-
-    tabSettingsBtn.addEventListener('click', () => {
-      tabSettingsBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition";
-      tabUsersBtn.className = tabAnalyticsBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
-      settingsSection.classList.remove('hidden');
-      usersSection.classList.add('hidden');
-      analyticsSection.classList.add('hidden');
+      ordersSection.classList.add('hidden');
     });
 
     function initDashboard() {
+      listenToOrders();
       listenToUsers();
-      listenToAnalytics();
-      loadSettings();
     }
 
+    // ランダムな4桁の数字PINを生成する関数
+    function generateRandomPin() {
+      return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    }
+
+    // 学年 → クラス → 出席番号 の優先順位でソートする関数
     function sortUserKeys(keys) {
       return keys.sort((a, b) => {
         const [gA, cA, nA] = a.split('_').map(Number);
         const [gB, cB, nB] = b.split('_').map(Number);
-        if (gA !== gB) return gA - gB;
-        if (cA !== cB) return cA - cB;
-        return nA - nB;
+
+        if (gA !== gB) return gA - gB; // 1. 学年で昇順
+        if (cA !== cB) return cA - cB; // 2. クラスで昇順
+        return nA - nB;                // 3. 出席番号で昇順
       });
     }
+
+    // ランダム初期PINの一括生成・登録処理
+    document.getElementById('bulkInitRandomBtn').addEventListener('click', async () => {
+      if (!confirm('全生徒（1,134名分）にそれぞれ異なるランダムな初期暗証番号を再発行してデータベースに上書きしますか？')) return;
+
+      const bulkData = {};
+      const now = Date.now();
+
+      for (let g = 1; g <= 3; g++) {
+        for (let c = 1; c <= 9; c++) {
+          for (let n = 1; n <= 42; n++) {
+            const key = `${g}_${c}_${n}`;
+            bulkData[key] = {
+              pin: generateRandomPin(),
+              isInitial: true,
+              updatedAt: now
+            };
+          }
+        }
+      }
+
+      try {
+        await set(ref(db, 'registeredUsers'), bulkData);
+        alert('全生徒（1,134名分）の個別ランダム初期PINの生成・登録が完了しました！\n「配布用パスワード一覧(CSV)をダウンロード」ボタンから配布リストを取得してください。');
+      } catch (err) {
+        console.error("一括生成エラー:", err);
+        alert("データベースへの登録に失敗しました。");
+      }
+    });
+
+    // 配布用CSV出力機能（1-1-1, 1-1-2... の順番で出力）
+    document.getElementById('exportCsvBtn').addEventListener('click', async () => {
+      const snapshot = await get(ref(db, 'registeredUsers'));
+      if (!snapshot.exists()) {
+        alert('データが存在しません。先に一括作成を実行してください。');
+        return;
+      }
+
+      const data = snapshot.val();
+      const sortedKeys = sortUserKeys(Object.keys(data));
+      let csvContent = "\uFEFF学年,クラス,出席番号,初期暗証番号(PIN),ステータス\n";
+
+      sortedKeys.forEach(key => {
+        const parts = key.split('_');
+        const u = data[key];
+        const status = u.isInitial ? "初期状態" : "変更済み";
+        csvContent += `${parts[0]},${parts[1]},${parts[2]},'${u.pin}',${status}\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `生徒初期パスワード一覧_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    function listenToOrders() {
+      onValue(ref(db, 'orders'), (snapshot) => {
+        const data = snapshot.val() || {};
+        const ordersGrid = document.getElementById('ordersGrid');
+        const badge = document.getElementById('orderCountBadge');
+        
+        ordersGrid.innerHTML = '';
+        const orderKeys = Object.keys(data).reverse();
+        badge.innerText = `${orderKeys.length} 件`;
+
+        if (orderKeys.length === 0) {
+          ordersGrid.innerHTML = '<p class="text-gray-400 text-sm col-span-full text-center py-8">現在注文はありません</p>';
+          return;
+        }
+
+        orderKeys.forEach(key => {
+          const order = data[key];
+          const isReady = order.status === 'ready';
+          const isCompleted = order.status === 'completed';
+
+          if (isCompleted) return;
+
+          const card = document.createElement('div');
+          card.className = `bg-white p-5 rounded-2xl border shadow-sm flex flex-col justify-between ${isReady ? 'border-green-400 bg-green-50/50' : 'border-gray-200'}`;
+          
+          card.innerHTML = `
+            <div>
+              <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-bold px-2.5 py-1 rounded-full ${isReady ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}">
+                  ${isReady ? '呼出中（調理完了）' : '調理中'}
+                </span>
+                <span class="text-xs text-gray-400">${new Date(order.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+              </div>
+              <div class="my-2">
+                <span class="text-xs text-gray-400 block">受取番号</span>
+                <span class="text-3xl font-black text-gray-800">${order.orderNumber}</span>
+              </div>
+              <p class="text-xs font-bold text-gray-600 mb-3">👤 ${order.studentInfo} （${order.paymentMethod || '未選択'}）</p>
+              <div class="text-sm bg-gray-50 p-3 rounded-xl border border-gray-100 mb-4 space-y-1">
+                ${order.items.map(i => `<div class="flex justify-between"><span>${i.name}</span><span class="font-semibold">¥${i.price}</span></div>`).join('')}
+              </div>
+            </div>
+            <div class="flex gap-2">
+              ${!isReady ? `
+                <button onclick="window.updateOrderStatus('${key}', 'ready')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2.5 rounded-xl shadow transition">
+                  調理完了・呼び出し
+                </button>
+              ` : `
+                <button onclick="window.updateOrderStatus('${key}', 'completed')" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white text-xs font-bold py-2.5 rounded-xl shadow transition">
+                  受け渡し完了
+                </button>
+              `}
+            </div>
+          `;
+          ordersGrid.appendChild(card);
+        });
+      });
+    }
+
+    window.updateOrderStatus = (orderId, newStatus) => {
+      update(ref(db, `orders/${orderId}`), { status: newStatus });
+    };
 
     function listenToUsers() {
       onValue(ref(db, 'registeredUsers'), (snapshot) => {
         const data = snapshot.val() || {};
         const tbody = document.getElementById('userTableBody');
         const badge = document.getElementById('userCountBadge');
+        
         tbody.innerHTML = '';
         const sortedUserKeys = sortUserKeys(Object.keys(data));
         badge.innerText = `${sortedUserKeys.length} 名`;
+
+        if (sortedUserKeys.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">データがありません。上の「一括作成」を実行してください。</td></tr>';
+          return;
+        }
 
         sortedUserKeys.forEach(userKey => {
           const user = data[userKey];
@@ -246,112 +329,40 @@
           tr.innerHTML = `
             <td class="p-3 font-mono text-xs text-gray-500">${userKey}</td>
             <td class="p-3 font-bold text-gray-800">${formattedInfo}</td>
-            <td class="p-3"><span class="bg-gray-100 text-blue-600 font-mono font-bold px-2.5 py-1 rounded border border-gray-200">${user.pin}</span></td>
-            <td class="p-3 text-xs">${user.isInitial ? '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">初期状態</span>' : '<span class="bg-green-100 text-green-800 px-2 py-0.5 rounded font-bold">変更済み</span>'}</td>
-            <td class="p-3 text-right"><button onclick="window.resetUserPin('${userKey}')" class="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">PINリセット</button></td>
+            <td class="p-3">
+              <span class="bg-gray-100 text-blue-600 font-mono font-bold px-2.5 py-1 rounded border border-gray-200">
+                ${user.pin}
+              </span>
+            </td>
+            <td class="p-3 text-xs">
+              ${user.isInitial ? 
+                '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">初期状態</span>' : 
+                '<span class="bg-green-100 text-green-800 px-2 py-0.5 rounded font-bold">変更済み</span>'}
+            </td>
+            <td class="p-3 text-right">
+              <button onclick="window.resetUserPin('${userKey}')" class="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                PINリセット
+              </button>
+            </td>
           `;
           tbody.appendChild(tr);
         });
       });
     }
 
-    // 【1-3】集計ロジック
-    function listenToAnalytics() {
-      onValue(ref(db, 'orders'), (snapshot) => {
-        const orders = snapshot.val() || {};
-        let totalSales = 0;
-        let totalCount = 0;
-        const menuCounts = {};
-
-        Object.values(orders).forEach(order => {
-          if (order.status === 'cancelled') return;
-          totalCount++;
-          order.items.forEach(item => {
-            totalSales += item.price;
-            menuCounts[item.name] = (menuCounts[item.name] || 0) + 1;
-          });
-        });
-
-        document.getElementById('statTotalOrders').innerText = `${totalCount} 件`;
-        document.getElementById('statTotalSales').innerText = `¥${totalSales.toLocaleString()}`;
-
-        let topMenu = '-';
-        let maxCount = 0;
-        const menuListContainer = document.getElementById('salesByMenu');
-        menuListContainer.innerHTML = '';
-
-        Object.entries(menuCounts).sort((a, b) => b[1] - a[1]).forEach(([name, count]) => {
-          if (count > maxCount) { maxCount = count; topMenu = name; }
-          const row = document.createElement('div');
-          row.className = "flex justify-between py-2";
-          row.innerHTML = `<span class="font-bold text-gray-700">${name}</span><span class="font-mono text-gray-600">${count} 食</span>`;
-          menuListContainer.appendChild(row);
-        });
-
-        document.getElementById('statTopItem').innerText = topMenu;
-      });
-    }
-
-    // 【1-5】受付時間設定ロード＆保存
-    function loadSettings() {
-      get(ref(db, 'systemSettings')).then(snapshot => {
-        if (snapshot.exists()) {
-          const s = snapshot.val();
-          document.getElementById('orderTimeEnabled').checked = s.timeEnabled || false;
-          document.getElementById('orderStartTime').value = s.startTime || "08:00";
-          document.getElementById('orderEndTime').value = s.endTime || "13:00";
-        }
-      });
-    }
-
-    document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-      const settings = {
-        timeEnabled: document.getElementById('orderTimeEnabled').checked,
-        startTime: document.getElementById('orderStartTime').value,
-        endTime: document.getElementById('orderEndTime').value
-      };
-      set(ref(db, 'systemSettings'), settings)
-        .then(() => alert('注文受付時間の設定を保存しました。'))
-        .catch(err => alert('保存失敗: ' + err.message));
-    });
-
     window.resetUserPin = (userKey) => {
-      const newPin = prompt(`【${userKey.replace(/_/g, ' ')}】 の新しい4桁PINを入力:`, "0000");
-      if (!newPin || !/^\d{4}$/.test(newPin)) return alert('半角数字4桁で入力してください');
-      update(ref(db, `registeredUsers/${userKey}`), { pin: newPin, isInitial: true, updatedAt: Date.now() });
-    };
+      const newPin = prompt(`【${userKey.replace(/_/g, ' ')}】 の新しい4桁のPINを入力してください:`, "0000");
+      if (!newPin) return;
 
-    document.getElementById('bulkInitRandomBtn').addEventListener('click', async () => {
-      if (!confirm('全生徒（1,134名分）にそれぞれ異なるランダムな初期暗証番号を再発行して上書きしますか？')) return;
-      const bulkData = {};
-      const now = Date.now();
-      for (let g = 1; g <= 3; g++) {
-        for (let c = 1; c <= 9; c++) {
-          for (let n = 1; n <= 42; n++) {
-            bulkData[`${g}_${c}_${n}`] = { pin: String(Math.floor(Math.random() * 10000)).padStart(4, '0'), isInitial: true, updatedAt: now };
-          }
-        }
+      if (!/^\d{4}$/.test(newPin)) {
+        alert('PINは半角数字4桁で入力してください。');
+        return;
       }
-      await set(ref(db, 'registeredUsers'), bulkData);
-      alert('一括作成が完了しました。');
-    });
 
-    document.getElementById('exportCsvBtn').addEventListener('click', async () => {
-      const snapshot = await get(ref(db, 'registeredUsers'));
-      if (!snapshot.exists()) return alert('データが存在しません');
-      const data = snapshot.val();
-      const sortedKeys = sortUserKeys(Object.keys(data));
-      let csv = "\uFEFF学年,クラス,出席番号,初期PIN,ステータス\n";
-      sortedKeys.forEach(k => {
-        const p = k.split('_');
-        csv += `${p[0]},${p[1]},${p[2]},'${data[k].pin}',${data[k].isInitial ? "初期状態" : "変更済み"}\n`;
-      });
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `生徒初期パスワード一覧.csv`;
-      link.click();
-    });
+      update(ref(db, `registeredUsers/${userKey}`), { pin: newPin, isInitial: true, updatedAt: Date.now() })
+        .then(() => alert('暗証番号（PIN）を更新・初期化しました。'))
+        .catch((err) => alert('更新に失敗しました: ' + err.message));
+    };
   </script>
 </body>
 </html>
