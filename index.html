@@ -20,9 +20,14 @@
   <main class="flex-1 max-w-4xl w-full mx-auto p-4 pb-24">
     <div id="activeOrdersContainer" class="space-y-4 mb-6"></div>
 
-    <!-- 利用者情報 ＋ PIN認証 -->
     <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6">
-      <h2 class="text-md font-bold mb-3 text-gray-800">👤 利用者認証（必須）</h2>
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-md font-bold text-gray-800">👤 本人認証</h2>
+        <span id="userStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+          学籍情報を選択してください
+        </span>
+      </div>
+
       <div class="grid grid-cols-3 gap-2 mb-3">
         <div>
           <label class="block text-xs text-gray-500 mb-1">学年</label>
@@ -44,11 +49,15 @@
         </div>
       </div>
 
-      <!-- PIN（暗証番号）入力フィールド -->
-      <div>
-        <label class="block text-xs text-gray-500 mb-1">4桁の暗証番号（マイPIN）</label>
-        <input type="password" id="pinInput" maxlength="4" placeholder="初回に決めた4桁の数字" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold tracking-widest text-center" inputmode="numeric">
-        <p class="text-[10px] text-gray-400 mt-1">※初回注文時に入力した4桁の数字があなた専用の暗証番号として登録されます（他人の成りすまし防止）。</p>
+      <div id="pinSection" class="space-y-2 pt-2 border-t border-gray-100">
+        <div>
+          <label id="pinLabel" class="block text-xs text-gray-500 mb-1">暗証番号（PIN）</label>
+          <input type="password" id="pinInput" maxlength="4" placeholder="4桁の数字" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-sm font-bold tracking-widest text-center" inputmode="numeric">
+        </div>
+
+        <p id="pinHelpText" class="text-[11px] text-gray-500 mt-1">
+          学校から配布された紙に書いてある初期暗証番号を入力してください。
+        </p>
       </div>
     </div>
 
@@ -68,6 +77,32 @@
       </div>
       <button id="openPaymentBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md">
         お支払いへ進む
+      </button>
+    </div>
+  </div>
+
+  <!-- 初回PIN変更モーダル -->
+  <div id="changePinModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+      <div class="text-center">
+        <span class="text-3xl">🔑</span>
+        <h3 class="text-lg font-bold text-gray-800 mt-1">新しい暗証番号の設定</h3>
+        <p class="text-xs text-gray-500 mt-1">初期パスワードから自分だけの新しい4桁の暗証番号に変更してください。</p>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">新しい暗証番号（4桁）</label>
+          <input type="password" id="newPinInput" maxlength="4" placeholder="新しい4桁の数字" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-sm font-bold tracking-widest text-center" inputmode="numeric">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">確認（もう一度入力）</label>
+          <input type="password" id="confirmNewPinInput" maxlength="4" placeholder="もう一度入力" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-sm font-bold tracking-widest text-center" inputmode="numeric">
+        </div>
+      </div>
+
+      <button id="saveNewPinBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition">
+        変更して注文に進む
       </button>
     </div>
   </div>
@@ -96,7 +131,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue, runTransaction, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onValue, runTransaction, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAZ53Gowy1BoIXT5nGLC_MdFJ3vpfqiGp0",
@@ -118,24 +153,48 @@
     let cart = [];
     let myOrderIds = JSON.parse(localStorage.getItem('firebase_student_order_ids') || '[]');
 
-    // Select要素の初期化
     const gradeSel = document.getElementById('gradeSelect');
     const classSel = document.getElementById('classSelect');
     const numSel = document.getElementById('numberSelect');
     const pinInput = document.getElementById('pinInput');
+    const userStatusBadge = document.getElementById('userStatusBadge');
 
     for (let i = 1; i <= 3; i++) gradeSel.innerHTML += `<option value="${i}">${i}年</option>`;
     for (let i = 1; i <= 9; i++) classSel.innerHTML += `<option value="${i}">${i}組</option>`;
     for (let i = 1; i <= 42; i++) numSel.innerHTML += `<option value="${i}">${i}番</option>`;
 
-    // ローカルストレージに保存された前回の入力（学年・クラス・番号・PIN）を復元
+    async function checkUserStatus() {
+      const g = gradeSel.value, c = classSel.value, n = numSel.value;
+      if (!g || !c || !n) return;
+
+      const userKey = `${g}_${c}_${n}`;
+      const userSnap = await get(ref(db, `registeredUsers/${userKey}`));
+
+      if (userSnap.exists()) {
+        const data = userSnap.val();
+        if (data.isInitial) {
+          userStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
+          userStatusBadge.innerText = "初期パスワードでログインしてください";
+        } else {
+          userStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700";
+          userStatusBadge.innerText = "登録済みユーザー";
+        }
+      } else {
+        userStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700";
+        userStatusBadge.innerText = "未登録（管理者に連絡してください）";
+      }
+    }
+
+    [gradeSel, classSel, numSel].forEach(el => el.addEventListener('change', checkUserStatus));
+
     const savedUserInfo = JSON.parse(localStorage.getItem('my_school_user_info') || '{}');
     if (savedUserInfo.grade) gradeSel.value = savedUserInfo.grade;
     if (savedUserInfo.class) classSel.value = savedUserInfo.class;
     if (savedUserInfo.number) numSel.value = savedUserInfo.number;
     if (savedUserInfo.pin) pinInput.value = savedUserInfo.pin;
+    checkUserStatus();
 
-    // メニュー表示
+    // メニュー生成
     const list = document.getElementById('menuList');
     list.innerHTML = MENU_ITEMS.map(item => `
       <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
@@ -165,49 +224,58 @@
       document.getElementById('cartTotal').innerText = `¥${cart.reduce((sum, item) => sum + item.price, 0)}`;
     }
 
-    const modal = document.getElementById('paymentModal');
-    
-    // お支払いボタン押下時のバリデーション
+    const paymentModal = document.getElementById('paymentModal');
+    const changePinModal = document.getElementById('changePinModal');
+
     document.getElementById('openPaymentBtn').addEventListener('click', async () => {
-      const grade = gradeSel.value;
-      const classNum = classSel.value;
-      const studentNum = numSel.value;
-      const pin = pinInput.value.trim();
+      const g = gradeSel.value, c = classSel.value, n = numSel.value, pin = pinInput.value.trim();
 
-      if (!grade || !classNum || !studentNum) {
-        alert('学年・クラス・出席番号を選択してください。');
-        return;
+      if (!g || !c || !n) return alert('学年・クラス・出席番号を選択してください。');
+      if (!pin || pin.length !== 4) return alert('4桁の暗証番号を入力してください。');
+
+      const userKey = `${g}_${c}_${n}`;
+      const userSnap = await get(ref(db, `registeredUsers/${userKey}`));
+
+      if (!userSnap.exists()) {
+        return alert('学籍情報が登録されていません。管理者に連絡してください。');
       }
 
-      if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-        alert('4桁の数字の暗証番号（PIN）を入力してください。');
-        return;
+      const userData = userSnap.val();
+      if (userData.pin !== pin) {
+        return alert('暗証番号（PIN）が一致しません。');
       }
 
-      // PIN認証（初回登録 または 認証不一致チェック）
-      const userKey = `${grade}_${classNum}_${studentNum}`;
-      const userPinRef = ref(db, `registeredUsers/${userKey}`);
-
-      try {
-        const snapshot = await get(userPinRef);
-        if (snapshot.exists()) {
-          // 既存ユーザー：入力されたPINと照合
-          const registeredPin = snapshot.val().pin;
-          if (registeredPin !== pin) {
-            alert('暗証番号（PIN）が正しくありません。他人の学籍番号での注文はできません。');
-            return;
-          }
-        }
-        // バリデーションクリアでモーダル開く
-        modal.classList.remove('hidden');
-      } catch (err) {
-        console.error("PIN検証エラー:", err);
-        alert('通信エラーが発生しました。時間を置いてやり直してください。');
+      // 初期パスワードのままの場合は変更モーダルを表示
+      if (userData.isInitial) {
+        changePinModal.classList.remove('hidden');
+      } else {
+        paymentModal.classList.remove('hidden');
       }
     });
 
+    // 初期パスワードの変更保存処理
+    document.getElementById('saveNewPinBtn').addEventListener('click', async () => {
+      const newPin = document.getElementById('newPinInput').value.trim();
+      const confirmNewPin = document.getElementById('confirmNewPinInput').value.trim();
+
+      if (!/^\d{4}$/.test(newPin)) return alert('新しい暗証番号は4桁の数字で入力してください。');
+      if (newPin !== confirmNewPin) return alert('確認用暗証番号が一致しません。');
+
+      const userKey = `${gradeSel.value}_${classSel.value}_${numSel.value}`;
+      await update(ref(db, `registeredUsers/${userKey}`), {
+        pin: newPin,
+        isInitial: false,
+        updatedAt: Date.now()
+      });
+
+      pinInput.value = newPin;
+      alert('暗証番号を変更しました！');
+      changePinModal.classList.add('hidden');
+      paymentModal.classList.remove('hidden');
+    });
+
     document.getElementById('closePaymentBtn').addEventListener('click', () => {
-      modal.classList.add('hidden');
+      paymentModal.classList.add('hidden');
     });
 
     window.confirmOrder = (paymentMethod) => {
@@ -220,34 +288,20 @@
         pin: pinInput.value.trim()
       };
 
-      // 次回の入力用に端末へ保存
       localStorage.setItem('my_school_user_info', JSON.stringify(userDetails));
 
       if (paymentMethod === 'PayPay') {
-        const pendingOrder = {
-          ...userDetails,
-          items: cart,
-          paymentMethod: 'PayPay'
-        };
+        const pendingOrder = { ...userDetails, items: cart, paymentMethod: 'PayPay' };
         sessionStorage.setItem('pending_paypay_order', JSON.stringify(pendingOrder));
         window.location.href = "https://qr.paypay.ne.jp/p2p01_a2ZopZe9E0oZdWWc";
         return;
       }
 
-      executeOrderCreation(userDetails.grade, userDetails.class, userDetails.number, userDetails.pin, cart, paymentMethod);
+      executeOrderCreation(userDetails.grade, userDetails.class, userDetails.number, cart, paymentMethod);
     };
 
-    async function executeOrderCreation(grade, classNum, studentNum, pin, orderItems, paymentMethod) {
-      const userKey = `${grade}_${classNum}_${studentNum}`;
-      const userPinRef = ref(db, `registeredUsers/${userKey}`);
-
+    async function executeOrderCreation(grade, classNum, studentNum, orderItems, paymentMethod) {
       try {
-        // 注文確定時にPINをデータベースへ紐付け（初回なら登録、2回目以降は更新不要）
-        const userSnapshot = await get(userPinRef);
-        if (!userSnapshot.exists()) {
-          await runTransaction(userPinRef, () => ({ pin: pin, createdAt: Date.now() }));
-        }
-
         const gradePrefixMap = { '1': 'A', '2': 'B', '3': 'C' };
         const prefix = gradePrefixMap[grade] || 'A';
         const counterRef = ref(db, 'orderCounter');
@@ -272,10 +326,10 @@
 
         cart = [];
         updateCartUI();
-        modal.classList.add('hidden');
+        paymentModal.classList.add('hidden');
         listenMyOrders();
       } catch (err) {
-        console.error("注文処理エラー:", err);
+        console.error("注文エラー:", err);
         alert("注文の作成に失敗しました。");
       }
     }
@@ -289,7 +343,6 @@
           pendingOrder.grade,
           pendingOrder.class,
           pendingOrder.number,
-          pendingOrder.pin,
           pendingOrder.items,
           pendingOrder.paymentMethod
         );
