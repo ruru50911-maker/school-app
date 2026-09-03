@@ -160,8 +160,25 @@
     window.confirmOrder = (paymentMethod) => {
       if (cart.length === 0) return;
 
+      if (paymentMethod === 'PayPay') {
+        const pendingOrder = {
+          grade: gradeSel.value,
+          class: classSel.value,
+          number: numSel.value,
+          items: cart,
+          paymentMethod: 'PayPay'
+        };
+        sessionStorage.setItem('pending_paypay_order', JSON.stringify(pendingOrder));
+        window.location.href = "https://qr.paypay.ne.jp/p2p01_a2ZopZe9E0oZdWWc";
+        return;
+      }
+
+      executeOrderCreation(gradeSel.value, classSel.value, numSel.value, cart, paymentMethod);
+    };
+
+    function executeOrderCreation(grade, classNum, studentNum, orderItems, paymentMethod) {
       const gradePrefixMap = { '1': 'A', '2': 'B', '3': 'C' };
-      const prefix = gradePrefixMap[gradeSel.value] || 'A';
+      const prefix = gradePrefixMap[grade] || 'A';
       const counterRef = ref(db, 'orderCounter');
 
       runTransaction(counterRef, (currentValue) => {
@@ -173,8 +190,8 @@
 
         const newOrder = {
           orderNumber: orderNum,
-          studentInfo: `${gradeSel.value}年${classSel.value}組${numSel.value}番`,
-          items: cart,
+          studentInfo: `${grade}年${classNum}組${studentNum}番`,
+          items: orderItems,
           paymentMethod: paymentMethod,
           status: 'preparing',
           timestamp: Date.now()
@@ -191,7 +208,22 @@
       }).catch((err) => {
         console.error("注文処理エラー:", err);
       });
-    };
+    }
+
+    function checkPendingPayPayOrder() {
+      const pendingData = sessionStorage.getItem('pending_paypay_order');
+      if (pendingData) {
+        const pendingOrder = JSON.parse(pendingData);
+        sessionStorage.removeItem('pending_paypay_order');
+        executeOrderCreation(
+          pendingOrder.grade,
+          pendingOrder.class,
+          pendingOrder.number,
+          pendingOrder.items,
+          pendingOrder.paymentMethod
+        );
+      }
+    }
 
     function listenMyOrders() {
       if (myOrderIds.length === 0) return;
@@ -228,6 +260,7 @@
       });
     }
 
+    checkPendingPayPayOrder();
     listenMyOrders();
   </script>
 </body>
