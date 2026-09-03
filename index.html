@@ -18,40 +18,76 @@
   </header>
 
   <main class="flex-1 max-w-4xl w-full mx-auto p-4 pb-24">
-    <div id="activeOrderCard" class="hidden mb-6"></div>
+    <!-- Active Orders List (複数注文に対応) -->
+    <div id="activeOrdersContainer" class="space-y-4 mb-6"></div>
 
+    <!-- User Information Form -->
     <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6">
       <h2 class="text-md font-bold mb-3 text-gray-800">👤 利用者情報（必須）</h2>
       <div class="grid grid-cols-3 gap-2">
         <div>
           <label class="block text-xs text-gray-500 mb-1">学年</label>
-          <select id="gradeSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold"></select>
+          <select id="gradeSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold">
+            <option value="">選択してください</option>
+          </select>
         </div>
         <div>
           <label class="block text-xs text-gray-500 mb-1">クラス</label>
-          <select id="classSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold"></select>
+          <select id="classSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold">
+            <option value="">選択してください</option>
+          </select>
         </div>
         <div>
           <label class="block text-xs text-gray-500 mb-1">出席番号</label>
-          <select id="numberSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold"></select>
+          <select id="numberSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold">
+            <option value="">選択してください</option>
+          </select>
         </div>
       </div>
     </div>
 
+    <!-- Menu Selection Section -->
     <div id="menuSection">
       <h2 class="text-lg font-bold mb-3 text-gray-800">🍱 メニュー選択</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="menuList"></div>
     </div>
   </main>
 
+  <!-- Sticky Cart Footer -->
   <div id="cartBar" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-2xl z-40 hidden">
     <div class="max-w-4xl mx-auto flex justify-between items-center">
       <div>
         <p class="text-xs text-gray-500" id="cartCount">合計 0 点</p>
         <p class="text-xl font-bold text-blue-600" id="cartTotal">¥0</p>
       </div>
-      <button id="orderBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md">
-        注文を確定する
+      <button id="openPaymentBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md">
+        お支払いへ進む
+      </button>
+    </div>
+  </div>
+
+  <!-- Payment Selection Modal -->
+  <div id="paymentModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+      <h3 class="text-lg font-bold text-center text-gray-800">決済方法の選択</h3>
+      <p class="text-xs text-gray-500 text-center">お支払い方法を選択して注文を確定してください。</p>
+
+      <div class="space-y-3">
+        <!-- PayPay Button -->
+        <button onclick="window.confirmOrder('PayPay')" class="w-full bg-red-500 hover:bg-red-600 active:scale-95 text-white font-bold py-3 px-4 rounded-xl shadow flex items-center justify-between transition">
+          <span class="text-lg">PayPayでお支払い</span>
+          <span class="text-xs bg-white/20 px-2 py-1 rounded">赤い画面</span>
+        </button>
+
+        <!-- au PAY Button -->
+        <button onclick="window.confirmOrder('au PAY')" class="w-full bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold py-3 px-4 rounded-xl shadow flex items-center justify-between transition">
+          <span class="text-lg">au PAYでお支払い</span>
+          <span class="text-xs bg-white/20 px-2 py-1 rounded">オレンジ画面</span>
+        </button>
+      </div>
+
+      <button id="closePaymentBtn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
+        キャンセル
       </button>
     </div>
   </div>
@@ -73,23 +109,25 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // メニュー（冷やしうどんのみ）
     const MENU_ITEMS = [
-      { id: 1, name: '日替わり定食', price: 500, emoji: '🍱' },
-      { id: 2, name: '醤油ラーメン', price: 450, emoji: '🍜' },
-      { id: 3, name: '特製カレーライス', price: 400, emoji: '🍛' },
-      { id: 4, name: 'カツ丼', price: 550, emoji: '🍚' },
+      { id: 1, name: '冷やしうどん', price: 360, emoji: '🍜' }
     ];
 
     let cart = [];
-    let myOrderId = localStorage.getItem('firebase_student_order_id');
+    // 過去の注文IDリストをローカルストレージで配列管理
+    let myOrderIds = JSON.parse(localStorage.getItem('firebase_student_order_ids') || '[]');
 
+    // ドロップダウンの初期化
     const gradeSel = document.getElementById('gradeSelect');
     const classSel = document.getElementById('classSelect');
     const numSel = document.getElementById('numberSelect');
+
     for (let i = 1; i <= 3; i++) gradeSel.innerHTML += `<option value="${i}">${i}年</option>`;
     for (let i = 1; i <= 9; i++) classSel.innerHTML += `<option value="${i}">${i}組</option>`;
     for (let i = 1; i <= 42; i++) numSel.innerHTML += `<option value="${i}">${i}番</option>`;
 
+    // メニュー描画
     const list = document.getElementById('menuList');
     list.innerHTML = MENU_ITEMS.map(item => `
       <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
@@ -119,7 +157,22 @@
       document.getElementById('cartTotal').innerText = `¥${cart.reduce((sum, item) => sum + item.price, 0)}`;
     }
 
-    document.getElementById('orderBtn').addEventListener('click', () => {
+    // 決済モーダルの開閉制御
+    const modal = document.getElementById('paymentModal');
+    document.getElementById('openPaymentBtn').addEventListener('click', () => {
+      if (!gradeSel.value || !classSel.value || !numSel.value) {
+        alert('学年、クラス、出席番号をすべて選択してください。');
+        return;
+      }
+      modal.classList.remove('hidden');
+    });
+
+    document.getElementById('closePaymentBtn').addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+
+    // 注文確定処理
+    window.confirmOrder = (paymentMethod) => {
       if (cart.length === 0) return;
 
       const orderNum = 'A-' + Math.floor(100 + Math.random() * 900);
@@ -127,48 +180,58 @@
         orderNumber: orderNum,
         studentInfo: `${gradeSel.value}年${classSel.value}組${numSel.value}番`,
         items: cart,
+        paymentMethod: paymentMethod,
         status: 'preparing',
         timestamp: Date.now()
       };
 
       const newOrderRef = push(ref(db, 'orders'), newOrder);
-      myOrderId = newOrderRef.key;
-      localStorage.setItem('firebase_student_order_id', myOrderId);
+      myOrderIds.push(newOrderRef.key);
+      localStorage.setItem('firebase_student_order_ids', JSON.stringify(myOrderIds));
 
       cart = [];
       updateCartUI();
-      listenMyOrder();
-    });
+      modal.classList.add('hidden');
+      listenMyOrders();
+    };
 
-    function listenMyOrder() {
-      if (!myOrderId) return;
-      onValue(ref(db, `orders/${myOrderId}`), (snapshot) => {
-        const order = snapshot.val();
-        const card = document.getElementById('activeOrderCard');
+    // 自分の全注文をリアルタイム監視・全件表示
+    function listenMyOrders() {
+      if (myOrderIds.length === 0) return;
+      onValue(ref(db, 'orders'), (snapshot) => {
+        const allOrders = snapshot.val() || {};
+        const container = document.getElementById('activeOrdersContainer');
+        container.innerHTML = '';
 
-        if (!order || order.status === 'completed') {
-          card.className = "hidden";
-          return;
-        }
-
-        card.className = "block";
-        const isReady = order.status === 'ready';
-        card.innerHTML = `
-          <div class="rounded-2xl p-6 text-center border shadow-lg ${isReady ? 'bg-green-50 border-green-400 text-green-900 animate-pulse-fast' : 'bg-white border-blue-200'}">
-            <p class="text-xs text-gray-500 mb-1">注文者：${order.studentInfo}</p>
-            <h3 class="text-xl font-bold mb-3 ${isReady ? 'text-green-700' : 'text-blue-600'}">
-              ${isReady ? '🎉 料理の準備ができました！' : '⏳ 調理中です...'}
-            </h3>
-            <div class="inline-block bg-white px-6 py-3 rounded-2xl shadow-inner mb-4 border">
-              <span class="text-xs text-gray-400 block">受取番号</span>
-              <span class="text-5xl font-black ${isReady ? 'text-green-600' : 'text-gray-800'}">${order.orderNumber}</span>
-            </div>
-          </div>
-        `;
+        myOrderIds.forEach(id => {
+          const order = allOrders[id];
+          if (order && order.status !== 'completed') {
+            const isReady = order.status === 'ready';
+            const card = document.createElement('div');
+            card.className = `rounded-2xl p-6 text-center border shadow-lg ${isReady ? 'bg-green-50 border-green-400 text-green-900 animate-pulse-fast' : 'bg-white border-blue-200'}`;
+            card.innerHTML = `
+              <div class="flex justify-between text-xs text-gray-500 mb-1">
+                <span>注文者：${order.studentInfo}</span>
+                <span class="font-bold">${order.paymentMethod || '未選択'}決済</span>
+              </div>
+              <h3 class="text-xl font-bold mb-3 ${isReady ? 'text-green-700' : 'text-blue-600'}">
+                ${isReady ? '🎉 料理の準備ができました！' : '⏳ 調理中です...'}
+              </h3>
+              <div class="inline-block bg-white px-6 py-3 rounded-2xl shadow-inner mb-2 border">
+                <span class="text-xs text-gray-400 block">受取番号</span>
+                <span class="text-5xl font-black ${isReady ? 'text-green-600' : 'text-gray-800'}">${order.orderNumber}</span>
+              </div>
+              <div class="text-xs text-gray-600 mt-2">
+                ${order.items.map(i => `<div>${i.name} (¥${i.price})</div>`).join('')}
+              </div>
+            `;
+            container.appendChild(card);
+          }
+        });
       });
     }
 
-    listenMyOrder();
+    listenMyOrders();
   </script>
 </body>
 </html>
