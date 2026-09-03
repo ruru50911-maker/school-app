@@ -7,77 +7,73 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          animation: {
-            'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-          }
-        }
-      }
+      theme: { extend: { animation: { 'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite' } } }
     }
   </script>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans min-h-screen flex flex-col">
 
-  <!-- Header -->
   <header class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-50">
-    <div class="flex items-center gap-2">
-      <h1 class="font-bold text-lg md:text-xl">🍱 学食モバイルオーダー</h1>
-    </div>
+    <h1 class="font-bold text-lg md:text-xl">🍱 学食モバイルオーダー</h1>
   </header>
 
-  <!-- Main Area -->
   <main class="flex-1 max-w-4xl w-full mx-auto p-4 pb-24">
-
-    <!-- Active Order Status Banner -->
     <div id="activeOrderCard" class="hidden mb-6"></div>
 
-    <!-- User Information Form -->
     <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6">
-      <h2 class="text-md font-bold mb-3 text-gray-800 flex items-center gap-1">
-        👤 利用者情報（必須）
-      </h2>
+      <h2 class="text-md font-bold mb-3 text-gray-800">👤 利用者情報（必須）</h2>
       <div class="grid grid-cols-3 gap-2">
         <div>
           <label class="block text-xs text-gray-500 mb-1">学年</label>
-          <select id="gradeSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none">
-          </select>
+          <select id="gradeSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold"></select>
         </div>
         <div>
           <label class="block text-xs text-gray-500 mb-1">クラス</label>
-          <select id="classSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none">
-          </select>
+          <select id="classSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold"></select>
         </div>
         <div>
           <label class="block text-xs text-gray-500 mb-1">出席番号</label>
-          <select id="numberSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none">
-          </select>
+          <select id="numberSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold"></select>
         </div>
       </div>
     </div>
 
-    <!-- Menu Selection Section -->
     <div id="menuSection">
       <h2 class="text-lg font-bold mb-3 text-gray-800">🍱 メニュー選択</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="menuList"></div>
     </div>
-
   </main>
 
-  <!-- Sticky Cart Footer -->
   <div id="cartBar" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-2xl z-40 hidden">
     <div class="max-w-4xl mx-auto flex justify-between items-center">
       <div>
         <p class="text-xs text-gray-500" id="cartCount">合計 0 点</p>
         <p class="text-xl font-bold text-blue-600" id="cartTotal">¥0</p>
       </div>
-      <button onclick="placeOrder()" class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-6 py-2.5 rounded-xl font-bold shadow-md transition">
+      <button id="orderBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md">
         注文を確定する
       </button>
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Firebase設定（適用済み）
+    const firebaseConfig = {
+      apiKey: "AIzaSyAZ53Gowy1BoIXT5nGLC_MdFJ3vpfqiGp0",
+      authDomain: "school-order-app.firebaseapp.com",
+      databaseURL: "https://school-order-app-default-rtdb.firebaseio.com",
+      projectId: "school-order-app",
+      storageBucket: "school-order-app.firebasestorage.app",
+      messagingSenderId: "1030918225373",
+      appId: "1:1030918225373:web:353c77fecd49d4a94f8a34"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
     const MENU_ITEMS = [
       { id: 1, name: '日替わり定食', price: 500, emoji: '🍱' },
       { id: 2, name: '醤油ラーメン', price: 450, emoji: '🍜' },
@@ -86,143 +82,94 @@
     ];
 
     let cart = [];
+    let myOrderId = localStorage.getItem('firebase_student_order_id');
 
-    function initSelects() {
-      const gradeSel = document.getElementById('gradeSelect');
-      const classSel = document.getElementById('classSelect');
-      const numSel = document.getElementById('numberSelect');
+    const gradeSel = document.getElementById('gradeSelect');
+    const classSel = document.getElementById('classSelect');
+    const numSel = document.getElementById('numberSelect');
+    for (let i = 1; i <= 3; i++) gradeSel.innerHTML += `<option value="${i}">${i}年</option>`;
+    for (let i = 1; i <= 9; i++) classSel.innerHTML += `<option value="${i}">${i}組</option>`;
+    for (let i = 1; i <= 42; i++) numSel.innerHTML += `<option value="${i}">${i}番</option>`;
 
-      for (let i = 1; i <= 3; i++) gradeSel.innerHTML += `<option value="${i}">${i}年</option>`;
-      for (let i = 1; i <= 9; i++) classSel.innerHTML += `<option value="${i}">${i}組</option>`;
-      for (let i = 1; i <= 42; i++) numSel.innerHTML += `<option value="${i}">${i}番</option>`;
-    }
-
-    function renderMenu() {
-      const list = document.getElementById('menuList');
-      list.innerHTML = MENU_ITEMS.map(item => `
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
-          <div class="flex items-center gap-3">
-            <span class="text-3xl">${item.emoji}</span>
-            <div>
-              <p class="font-bold text-gray-800">${item.name}</p>
-              <p class="text-blue-600 font-semibold">¥${item.price}</p>
-            </div>
+    const list = document.getElementById('menuList');
+    list.innerHTML = MENU_ITEMS.map(item => `
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <span class="text-3xl">${item.emoji}</span>
+          <div>
+            <p class="font-bold text-gray-800">${item.name}</p>
+            <p class="text-blue-600 font-semibold">¥${item.price}</p>
           </div>
-          <button onclick="addToCart(${item.id})" class="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold px-4 py-2 rounded-lg text-sm transition">
-            ＋ 追加
-          </button>
         </div>
-      `).join('');
-    }
+        <button onclick="window.addToCart(${item.id})" class="bg-blue-50 text-blue-600 font-bold px-4 py-2 rounded-lg text-sm">
+          ＋ 追加
+        </button>
+      </div>
+    `).join('');
 
-    function addToCart(itemId) {
+    window.addToCart = (itemId) => {
       const item = MENU_ITEMS.find(i => i.id === itemId);
-      if (item) {
-        cart.push(item);
-        updateCartUI();
-      }
-    }
+      if (item) { cart.push(item); updateCartUI(); }
+    };
 
     function updateCartUI() {
       const bar = document.getElementById('cartBar');
-      if (cart.length === 0) {
-        bar.classList.add('hidden');
-        return;
-      }
+      if (cart.length === 0) { bar.classList.add('hidden'); return; }
       bar.classList.remove('hidden');
       document.getElementById('cartCount').innerText = `合計 ${cart.length} 点`;
-      const total = cart.reduce((sum, item) => sum + item.price, 0);
-      document.getElementById('cartTotal').innerText = `¥${total}`;
+      document.getElementById('cartTotal').innerText = `¥${cart.reduce((sum, item) => sum + item.price, 0)}`;
     }
 
-    function placeOrder() {
+    document.getElementById('orderBtn').addEventListener('click', () => {
       if (cart.length === 0) return;
 
-      const grade = document.getElementById('gradeSelect').value;
-      const cls = document.getElementById('classSelect').value;
-      const num = document.getElementById('numberSelect').value;
-
-      const existingOrders = JSON.parse(localStorage.getItem('cafeteria_orders') || '[]');
-      const orderCounter = existingOrders.length + 1;
-      const numStr = orderCounter.toString().padStart(3, '0');
-
+      const orderNum = 'A-' + Math.floor(100 + Math.random() * 900);
       const newOrder = {
-        id: 'ord_' + Date.now(),
-        orderNumber: `A-${numStr}`,
-        studentInfo: `${grade}年${cls}組${num}番`,
-        items: [...cart],
-        total: cart.reduce((sum, i) => sum + i.price, 0),
+        orderNumber: orderNum,
+        studentInfo: `${gradeSel.value}年${classSel.value}組${numSel.value}番`,
+        items: cart,
         status: 'preparing',
-        timestamp: new Date().getTime()
+        timestamp: Date.now()
       };
 
-      existingOrders.push(newOrder);
-      localStorage.setItem('cafeteria_orders', JSON.stringify(existingOrders));
-      localStorage.setItem('current_student_order_id', newOrder.id);
+      const newOrderRef = push(ref(db, 'orders'), newOrder);
+      myOrderId = newOrderRef.key;
+      localStorage.setItem('firebase_student_order_id', myOrderId);
 
       cart = [];
       updateCartUI();
-      checkOrderStatus();
+      listenMyOrder();
+    });
 
-      alert(`注文が確定しました！\n受取番号: ${newOrder.orderNumber}`);
-    }
+    function listenMyOrder() {
+      if (!myOrderId) return;
+      onValue(ref(db, `orders/${myOrderId}`), (snapshot) => {
+        const order = snapshot.val();
+        const card = document.getElementById('activeOrderCard');
 
-    function checkOrderStatus() {
-      const activeOrderId = localStorage.getItem('current_student_order_id');
-      const card = document.getElementById('activeOrderCard');
+        if (!order || order.status === 'completed') {
+          card.className = "hidden";
+          return;
+        }
 
-      if (!activeOrderId) {
-        card.className = "hidden";
-        return;
-      }
-
-      const orders = JSON.parse(localStorage.getItem('cafeteria_orders') || '[]');
-      const activeOrder = orders.find(o => o.id === activeOrderId);
-
-      if (!activeOrder || activeOrder.status === 'completed') {
-        card.className = "hidden";
-        return;
-      }
-
-      card.className = "block transition-all";
-      const isReady = activeOrder.status === 'ready';
-
-      card.innerHTML = `
-        <div class="rounded-2xl p-6 text-center border shadow-lg transition-all ${
-          isReady ? 'bg-green-50 border-green-400 text-green-900 animate-pulse-fast' : 'bg-white border-blue-200 text-gray-800'
-        }">
-          <p class="text-xs font-semibold text-gray-500 mb-1">注文者：${activeOrder.studentInfo}</p>
-          <h3 class="text-xl font-bold mb-3 ${isReady ? 'text-green-700' : 'text-blue-600'}">
-            ${isReady ? '🎉 料理の準備ができました！' : '⏳ 調理中です...'}
-          </h3>
-
-          <div class="inline-block bg-white px-6 py-3 rounded-2xl shadow-inner mb-4 border border-gray-100">
-            <span class="text-xs text-gray-400 block mb-0.5">受取番号</span>
-            <span class="text-5xl font-black tracking-wider ${isReady ? 'text-green-600' : 'text-gray-800'}">
-              ${activeOrder.orderNumber}
-            </span>
-          </div>
-
-          <div class="bg-gray-50 rounded-xl p-3 max-w-xs mx-auto text-left text-xs text-gray-600 border border-gray-200 mb-3">
-            <p class="font-bold border-b pb-1 mb-1 text-gray-700">注文内容</p>
-            ${activeOrder.items.map(i => `<div class="flex justify-between py-0.5"><span>${i.name}</span><span>¥${i.price}</span></div>`).join('')}
-          </div>
-
-          ${isReady ? `
-            <div class="bg-green-600 text-white font-bold py-2.5 px-4 rounded-xl text-sm shadow-md animate-bounce">
-              食堂カウンターでこの画面を見せて受け取ってください
+        card.className = "block";
+        const isReady = order.status === 'ready';
+        card.innerHTML = `
+          <div class="rounded-2xl p-6 text-center border shadow-lg ${isReady ? 'bg-green-50 border-green-400 text-green-900 animate-pulse-fast' : 'bg-white border-blue-200'}">
+            <p class="text-xs text-gray-500 mb-1">注文者：${order.studentInfo}</p>
+            <h3 class="text-xl font-bold mb-3 ${isReady ? 'text-green-700' : 'text-blue-600'}">
+              ${isReady ? '🎉 料理の準備ができました！' : '⏳ 調理中です...'}
+            </h3>
+            <div class="inline-block bg-white px-6 py-3 rounded-2xl shadow-inner mb-4 border">
+              <span class="text-xs text-gray-400 block">受取番号</span>
+              <span class="text-5xl font-black ${isReady ? 'text-green-600' : 'text-gray-800'}">${order.orderNumber}</span>
             </div>
-          ` : `
-            <p class="text-xs text-gray-500">呼び出しまでそのままお待ちください</p>
-          `}
-        </div>
-      `;
+          </div>
+        `;
+      });
     }
 
-    initSelects();
-    renderMenu();
-    checkOrderStatus();
-    setInterval(checkOrderStatus, 2000);
+    listenMyOrder();
   </script>
 </body>
 </html>
