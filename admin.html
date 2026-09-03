@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>学食オーダー管理画面</title>
+  <title>学食オーダー管理画面 - クラス別管理対応</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans min-h-screen">
@@ -44,7 +44,7 @@
           📋 注文リアルタイム管理
         </button>
         <button id="tabUsersBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition">
-          👥 生徒パスワード（PIN）マスター管理
+          👥 生徒パスワード（クラス別）マスター管理
         </button>
       </div>
 
@@ -57,31 +57,47 @@
         <div id="ordersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
       </section>
 
-      <!-- セクション2: 全生徒パスワードマスター管理 -->
+      <!-- セクション2: クラス別 生徒パスワードマスター管理 -->
       <section id="usersSection" class="hidden space-y-4">
         
         <!-- 一括初期化・出力ツール -->
         <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
-          <h3 class="font-bold text-sm text-amber-900">⚙️ 全生徒データの個別ランダム初期化・一括発行</h3>
+          <h3 class="font-bold text-sm text-amber-900">⚙️ 全生徒データの個別ランダム初期化・クラス別出力</h3>
           <p class="text-xs text-amber-800">
-            全クラス（1〜3年 × 1〜9組 × 1〜42番 = 計1,134名分）にそれぞれ異なるランダムな4桁初期PINを発行します。発行完了後、配布用のリスト（CSV）をダウンロードできます。
+            全クラス（1〜3年 × 1〜9組 × 1〜42番 = 計1,134名分）にそれぞれ異なるランダムな4桁初期PINを一括発行します。クラス別に絞り込んで確認・CSVダウンロードが可能です。
           </p>
           <div class="flex flex-wrap items-center gap-3">
             <button id="bulkInitRandomBtn" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow">
               🎲 全生徒のランダム初期PINを一括作成・登録する
             </button>
-            <button id="exportCsvBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow">
-              📄 配布用パスワード一覧(CSV)をダウンロード
+            <button id="exportClassCsvBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow">
+              📄 表示中クラスのパスワード一覧(CSV)をダウンロード
             </button>
           </div>
         </div>
 
-        <div class="flex justify-between items-center">
-          <div>
-            <h2 class="text-lg font-bold text-gray-800">全生徒パスワード一覧</h2>
-            <p class="text-xs text-gray-500">生徒が各自変更したパスワードもここで確認・リセットできます</p>
+        <!-- クラス絞り込みフィルター -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-bold text-gray-700">表示クラス選択:</span>
+            <select id="filterGrade" class="border rounded-lg p-2 text-sm bg-gray-50 font-bold">
+              <option value="1">1年生</option>
+              <option value="2">2年生</option>
+              <option value="3">3年生</option>
+            </select>
+            <select id="filterClass" class="border rounded-lg p-2 text-sm bg-gray-50 font-bold">
+              <option value="1">1組</option>
+              <option value="2">2組</option>
+              <option value="3">3組</option>
+              <option value="4">4組</option>
+              <option value="5">5組</option>
+              <option value="6">6組</option>
+              <option value="7">7組</option>
+              <option value="8">8組</option>
+              <option value="9">9組</option>
+            </select>
           </div>
-          <span id="userCountBadge" class="bg-gray-200 text-gray-800 text-xs font-bold px-3 py-1 rounded-full">0 名</span>
+          <span id="userCountBadge" class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">0 名</span>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -89,8 +105,8 @@
             <table class="w-full text-left border-collapse">
               <thead>
                 <tr class="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+                  <th class="p-3">出席番号</th>
                   <th class="p-3">学籍キー</th>
-                  <th class="p-3">学年 / クラス / 番号</th>
                   <th class="p-3">現在の設定PIN</th>
                   <th class="p-3">ステータス</th>
                   <th class="p-3 text-right">操作</th>
@@ -135,6 +151,11 @@
     const ordersSection = document.getElementById('ordersSection');
     const usersSection = document.getElementById('usersSection');
 
+    const filterGrade = document.getElementById('filterGrade');
+    const filterClass = document.getElementById('filterClass');
+
+    let cachedUsersData = {};
+
     adminLoginBtn.addEventListener('click', () => {
       if (adminPassInput.value === ADMIN_PASSWORD) {
         authOverlay.classList.add('hidden');
@@ -161,29 +182,19 @@
       ordersSection.classList.add('hidden');
     });
 
+    filterGrade.addEventListener('change', () => renderUserTable(cachedUsersData));
+    filterClass.addEventListener('change', () => renderUserTable(cachedUsersData));
+
     function initDashboard() {
       listenToOrders();
       listenToUsers();
     }
 
-    // ランダムな4桁の数字PINを生成する関数
     function generateRandomPin() {
       return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
     }
 
-    // 学年 → クラス → 出席番号 の優先順位でソートする関数
-    function sortUserKeys(keys) {
-      return keys.sort((a, b) => {
-        const [gA, cA, nA] = a.split('_').map(Number);
-        const [gB, cB, nB] = b.split('_').map(Number);
-
-        if (gA !== gB) return gA - gB; // 1. 学年で昇順
-        if (cA !== cB) return cA - cB; // 2. クラスで昇順
-        return nA - nB;                // 3. 出席番号で昇順
-      });
-    }
-
-    // ランダム初期PINの一括生成・登録処理
+    // 一括初期PIN作成
     document.getElementById('bulkInitRandomBtn').addEventListener('click', async () => {
       if (!confirm('全生徒（1,134名分）にそれぞれ異なるランダムな初期暗証番号を再発行してデータベースに上書きしますか？')) return;
 
@@ -205,37 +216,40 @@
 
       try {
         await set(ref(db, 'registeredUsers'), bulkData);
-        alert('全生徒（1,134名分）の個別ランダム初期PINの生成・登録が完了しました！\n「配布用パスワード一覧(CSV)をダウンロード」ボタンから配布リストを取得してください。');
+        alert('全生徒（1,134名分）の個別ランダム初期PINの生成・登録が完了しました！');
       } catch (err) {
         console.error("一括生成エラー:", err);
         alert("データベースへの登録に失敗しました。");
       }
     });
 
-    // 配布用CSV出力機能（1-1-1, 1-1-2... の順番で出力）
-    document.getElementById('exportCsvBtn').addEventListener('click', async () => {
-      const snapshot = await get(ref(db, 'registeredUsers'));
-      if (!snapshot.exists()) {
-        alert('データが存在しません。先に一括作成を実行してください。');
-        return;
+    // 選択中クラスのCSV出力機能
+    document.getElementById('exportClassCsvBtn').addEventListener('click', () => {
+      const g = filterGrade.value;
+      const c = filterClass.value;
+      let csvContent = "\uFEFF出席番号,学籍キー,初期暗証番号(PIN),ステータス\n";
+      let count = 0;
+
+      for (let n = 1; n <= 42; n++) {
+        const key = `${g}_${c}_${n}`;
+        const user = cachedUsersData[key];
+        if (user) {
+          const status = user.isInitial ? "初期状態" : "変更済み";
+          csvContent += `${n},${key},'${user.pin}',${status}\n`;
+          count++;
+        }
       }
 
-      const data = snapshot.val();
-      const sortedKeys = sortUserKeys(Object.keys(data));
-      let csvContent = "\uFEFF学年,クラス,出席番号,初期暗証番号(PIN),ステータス\n";
-
-      sortedKeys.forEach(key => {
-        const parts = key.split('_');
-        const u = data[key];
-        const status = u.isInitial ? "初期状態" : "変更済み";
-        csvContent += `${parts[0]},${parts[1]},${parts[2]},'${u.pin}',${status}\n`;
-      });
+      if (count === 0) {
+        alert('該当クラスのデータが存在しません。先に一括作成を実行してください。');
+        return;
+      }
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `生徒初期パスワード一覧_${new Date().toISOString().slice(0,10)}.csv`);
+      link.setAttribute("download", `${g}年${c}組_生徒パスワード一覧_${new Date().toISOString().slice(0,10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -306,29 +320,31 @@
 
     function listenToUsers() {
       onValue(ref(db, 'registeredUsers'), (snapshot) => {
-        const data = snapshot.val() || {};
-        const tbody = document.getElementById('userTableBody');
-        const badge = document.getElementById('userCountBadge');
-        
-        tbody.innerHTML = '';
-        const sortedUserKeys = sortUserKeys(Object.keys(data));
-        badge.innerText = `${sortedUserKeys.length} 名`;
+        cachedUsersData = snapshot.val() || {};
+        renderUserTable(cachedUsersData);
+      });
+    }
 
-        if (sortedUserKeys.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">データがありません。上の「一括作成」を実行してください。</td></tr>';
-          return;
-        }
+    function renderUserTable(data) {
+      const tbody = document.getElementById('userTableBody');
+      const badge = document.getElementById('userCountBadge');
+      const selectedG = filterGrade.value;
+      const selectedC = filterClass.value;
 
-        sortedUserKeys.forEach(userKey => {
-          const user = data[userKey];
-          const parts = userKey.split('_');
-          const formattedInfo = `${parts[0]}年 ${parts[1]}組 ${parts[2]}番`;
+      tbody.innerHTML = '';
+      let matchCount = 0;
 
+      for (let n = 1; n <= 42; n++) {
+        const userKey = `${selectedG}_${selectedC}_${n}`;
+        const user = data[userKey];
+
+        if (user) {
+          matchCount++;
           const tr = document.createElement('tr');
           tr.className = "hover:bg-gray-50 transition";
           tr.innerHTML = `
+            <td class="p-3 font-bold text-gray-800">${n} 番</td>
             <td class="p-3 font-mono text-xs text-gray-500">${userKey}</td>
-            <td class="p-3 font-bold text-gray-800">${formattedInfo}</td>
             <td class="p-3">
               <span class="bg-gray-100 text-blue-600 font-mono font-bold px-2.5 py-1 rounded border border-gray-200">
                 ${user.pin}
@@ -346,12 +362,17 @@
             </td>
           `;
           tbody.appendChild(tr);
-        });
-      });
+        }
+      }
+
+      badge.innerText = `${matchCount} 名`;
+      if (matchCount === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">このクラスのデータがありません。上の「一括作成」を実行してください。</td></tr>';
+      }
     }
 
     window.resetUserPin = (userKey) => {
-      const newPin = prompt(`【${userKey.replace(/_/g, ' ')}】 の新しい4桁のPINを入力してください:`, "0000");
+      const newPin = prompt(`【${userKey.replace(/_/g, ' ')}番】 の新しい4桁のPINを入力してください:`, "0000");
       if (!newPin) return;
 
       if (!/^\d{4}$/.test(newPin)) {
