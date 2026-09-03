@@ -60,16 +60,18 @@
       <!-- セクション2: 全生徒パスワードマスター管理 -->
       <section id="usersSection" class="hidden space-y-4">
         
-        <!-- 一括初期化ツール -->
+        <!-- 一括初期化・出力ツール -->
         <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
-          <h3 class="font-bold text-sm text-amber-900">⚙️ 全生徒データの初期化・一括発行</h3>
+          <h3 class="font-bold text-sm text-amber-900">⚙️ 全生徒データの個別ランダム初期化・一括発行</h3>
           <p class="text-xs text-amber-800">
-            全クラス（1〜3年 × 1〜9組 × 1〜42番 = 計1,134名分）の初期パスワードを一括登録します。生徒には配る紙に書いた共通初期PINを知らせてください。
+            全クラス（1〜3年 × 1〜9組 × 1〜42番 = 計1,134名分）にそれぞれ異なるランダムな4桁初期PINを発行します。発行完了後、配布用のリスト（CSV）をダウンロードできます。
           </p>
-          <div class="flex items-center gap-3">
-            <input type="text" id="defaultPinInput" maxlength="4" value="0000" placeholder="初期PIN (4桁)" class="bg-white border p-2 rounded text-sm font-bold w-32 text-center">
-            <button id="bulkInitBtn" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition">
-              全生徒の初期PINを一括作成・初期化する
+          <div class="flex flex-wrap items-center gap-3">
+            <button id="bulkInitRandomBtn" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow">
+              🎲 全生徒のランダム初期PINを一括作成・登録する
+            </button>
+            <button id="exportCsvBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow">
+              📄 配布用パスワード一覧(CSV)をダウンロード
             </button>
           </div>
         </div>
@@ -105,7 +107,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, update, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAZ53Gowy1BoIXT5nGLC_MdFJ3vpfqiGp0",
@@ -164,15 +166,14 @@
       listenToUsers();
     }
 
-    // 全生徒の一括初期PIN設定処理
-    document.getElementById('bulkInitBtn').addEventListener('click', async () => {
-      const defaultPin = document.getElementById('defaultPinInput').value.trim();
-      if (!/^\d{4}$/.test(defaultPin)) {
-        alert('4桁の半角数字を入力してください。');
-        return;
-      }
+    // ランダムな4桁の数字PINを生成する関数
+    function generateRandomPin() {
+      return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    }
 
-      if (!confirm(`全生徒（1〜3年・1〜9組・1〜42番）の初期暗証番号を「${defaultPin}」で一括生成・リセットしますか？`)) return;
+    // ランダム初期PINの一括生成・登録処理
+    document.getElementById('bulkInitRandomBtn').addEventListener('click', async () => {
+      if (!confirm('全生徒（1,134名分）にそれぞれ異なるランダムな初期暗証番号を再発行してデータベースに上書きしますか？')) return;
 
       const bulkData = {};
       const now = Date.now();
@@ -182,8 +183,8 @@
           for (let n = 1; n <= 42; n++) {
             const key = `${g}_${c}_${n}`;
             bulkData[key] = {
-              pin: defaultPin,
-              isInitial: true, // 初期パスワードフラグ
+              pin: generateRandomPin(), // 生徒ごとにランダムな4桁を割り当て
+              isInitial: true,          // 初回ログイン前フラグ
               updatedAt: now
             };
           }
@@ -192,11 +193,39 @@
 
       try {
         await set(ref(db, 'registeredUsers'), bulkData);
-        alert('全生徒（1,134名分）の初期暗証番号データを作成完了しました！');
+        alert('全生徒（1,134名分）の個別ランダム初期PINの生成・登録が完了しました！\n「配布用パスワード一覧(CSV)をダウンロード」ボタンから配布リストを取得してください。');
       } catch (err) {
         console.error("一括生成エラー:", err);
         alert("データベースへの登録に失敗しました。");
       }
+    });
+
+    // 配布用CSV出力機能（印刷・紙配布用）
+    document.getElementById('exportCsvBtn').addEventListener('click', async () => {
+      const snapshot = await get(ref(db, 'registeredUsers'));
+      if (!snapshot.exists()) {
+        alert('データが存在しません。先に一括作成を実行してください。');
+        return;
+      }
+
+      const data = snapshot.val();
+      let csvContent = "\uFEFF学年,クラス,出席番号,初期暗証番号(PIN),ステータス\n"; // UTF-8 BOM付きで文字化け防止
+
+      Object.keys(data).forEach(key => {
+        const parts = key.split('_');
+        const u = data[key];
+        const status = u.isInitial ? "初期状態" : "変更済み";
+        csvContent += `${parts[0]},${parts[1]},${parts[2]},'${u.pin}',${status}\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `生徒初期パスワード一覧_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     });
 
     function listenToOrders() {
