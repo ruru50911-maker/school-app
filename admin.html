@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学食オーダー管理画面</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans min-h-screen">
+
+  <!-- 管理者ログインモーダル -->
+  <div id="authOverlay" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="text-center">
+        <span class="text-4xl">🔐</span>
+        <h2 class="text-xl font-bold text-gray-800 mt-2">管理者ログイン</h2>
+        <p class="text-xs text-gray-500 mt-1">管理用パスワードを入力してください</p>
+      </div>
+      <div>
+        <input type="password" id="adminPassInput" placeholder="パスワードを入力" class="w-full bg-gray-50 border border-gray-300 rounded-xl p-3 text-center text-lg font-bold">
+      </div>
+      <button id="adminLoginBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition">
+        ログイン
+      </button>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div id="adminContent" class="hidden">
+    <header class="bg-gray-800 text-white p-4 shadow-md sticky top-0 z-40 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🍱</span>
+        <h1 class="font-bold text-lg md:text-xl">学食モバイルオーダー 管理ダッシュボード</h1>
+      </div>
+      <button id="adminLogoutBtn" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded-lg border border-gray-500 transition">
+        ログアウト
+      </button>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 space-y-8 pb-16">
+      
+      <!-- タブ切り替え -->
+      <div class="flex border-b border-gray-200 bg-white rounded-xl p-1 shadow-sm">
+        <button id="tabOrdersBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition">
+          📋 注文リアルタイム管理
+        </button>
+        <button id="tabUsersBtn" class="flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition">
+          👥 ユーザー・PIN管理
+        </button>
+      </div>
+
+      <!-- セクション1: 注文管理 -->
+      <section id="ordersSection" class="space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-bold text-gray-800">受付中のお呼び出し・注文一覧</h2>
+          <span id="orderCountBadge" class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">0 件</span>
+        </div>
+        <div id="ordersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- セクション2: ユーザー情報・PIN管理 -->
+      <section id="usersSection" class="hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-lg font-bold text-gray-800">登録済み生徒一覧</h2>
+            <p class="text-xs text-gray-500">初回注文時に自動登録された学籍とPINコードの一覧です</p>
+          </div>
+          <span id="userCountBadge" class="bg-gray-200 text-gray-800 text-xs font-bold px-3 py-1 rounded-full">0 名</span>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+                  <th class="p-3">学籍識別ID</th>
+                  <th class="p-3">学年 / クラス / 番号</th>
+                  <th class="p-3">現在のPIN</th>
+                  <th class="p-3">登録日時</th>
+                  <th class="p-3 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody id="userTableBody" class="divide-y divide-gray-200 text-sm">
+                <!-- JSで動的挿入 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAZ53Gowy1BoIXT5nGLC_MdFJ3vpfqiGp0",
+      authDomain: "school-order-app.firebaseapp.com",
+      databaseURL: "https://school-order-app-default-rtdb.firebaseio.com",
+      projectId: "school-order-app",
+      storageBucket: "school-order-app.firebasestorage.app",
+      messagingSenderId: "1030918225373",
+      appId: "1:1030918225373:web:353c77fecd49d4a94f8a34"
+    };
+
+    const ADMIN_PASSWORD = "admin1234"; // 画面ログイン用パスワード
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // 要素参照
+    const authOverlay = document.getElementById('authOverlay');
+    const adminContent = document.getElementById('adminContent');
+    const adminPassInput = document.getElementById('adminPassInput');
+    const adminLoginBtn = document.getElementById('adminLoginBtn');
+    const adminLogoutBtn = document.getElementById('adminLogoutBtn');
+
+    const tabOrdersBtn = document.getElementById('tabOrdersBtn');
+    const tabUsersBtn = document.getElementById('tabUsersBtn');
+    const ordersSection = document.getElementById('ordersSection');
+    const usersSection = document.getElementById('usersSection');
+
+    // 管理者ログイン判定
+    adminLoginBtn.addEventListener('click', () => {
+      if (adminPassInput.value === ADMIN_PASSWORD) {
+        authOverlay.classList.add('hidden');
+        adminContent.classList.remove('hidden');
+        initDashboard();
+      } else {
+        alert('パスワードが正しくありません。');
+      }
+    });
+
+    adminLogoutBtn.addEventListener('click', () => {
+      location.reload();
+    });
+
+    // タブ切り替え処理
+    tabOrdersBtn.addEventListener('click', () => {
+      tabOrdersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition";
+      tabUsersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
+      ordersSection.classList.remove('hidden');
+      usersSection.classList.add('hidden');
+    });
+
+    tabUsersBtn.addEventListener('click', () => {
+      tabUsersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg bg-blue-600 text-white transition";
+      tabOrdersBtn.className = "flex-1 py-2.5 text-center font-bold text-sm rounded-lg text-gray-600 hover:bg-gray-100 transition";
+      usersSection.classList.remove('hidden');
+      ordersSection.classList.add('hidden');
+    });
+
+    function initDashboard() {
+      listenToOrders();
+      listenToUsers();
+    }
+
+    // 1. 注文リストのリアルタイム監視
+    function listenToOrders() {
+      onValue(ref(db, 'orders'), (snapshot) => {
+        const data = snapshot.val() || {};
+        const ordersGrid = document.getElementById('ordersGrid');
+        const badge = document.getElementById('orderCountBadge');
+        
+        ordersGrid.innerHTML = '';
+        const orderKeys = Object.keys(data).reverse();
+        badge.innerText = `${orderKeys.length} 件`;
+
+        if (orderKeys.length === 0) {
+          ordersGrid.innerHTML = '<p class="text-gray-400 text-sm col-span-full text-center py-8">現在注文はありません</p>';
+          return;
+        }
+
+        orderKeys.forEach(key => {
+          const order = data[key];
+          const isReady = order.status === 'ready';
+          const isCompleted = order.status === 'completed';
+
+          if (isCompleted) return;
+
+          const card = document.createElement('div');
+          card.className = `bg-white p-5 rounded-2xl border shadow-sm flex flex-col justify-between ${isReady ? 'border-green-400 bg-green-50/50' : 'border-gray-200'}`;
+          
+          card.innerHTML = `
+            <div>
+              <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-bold px-2.5 py-1 rounded-full ${isReady ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}">
+                  ${isReady ? '呼出中（調理完了）' : '調理中'}
+                </span>
+                <span class="text-xs text-gray-400">${new Date(order.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+              </div>
+              <div class="my-2">
+                <span class="text-xs text-gray-500 block">番号</span>
+                <span class="text-3xl font-black text-gray-800">${order.orderNumber}</span>
+              </div>
+              <p class="text-xs font-bold text-gray-600 mb-3">👤 ${order.studentInfo} （${order.paymentMethod || '未選択'}）</p>
+              <div class="text-sm bg-gray-50 p-3 rounded-xl border border-gray-100 mb-4 space-y-1">
+                ${order.items.map(i => `<div class="flex justify-between"><span>${i.name}</span><span class="font-semibold">¥${i.price}</span></div>`).join('')}
+              </div>
+            </div>
+            <div class="flex gap-2">
+              ${!isReady ? `
+                <button onclick="window.updateOrderStatus('${key}', 'ready')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2.5 rounded-xl shadow transition">
+                  調理完了・呼び出し
+                </button>
+              ` : `
+                <button onclick="window.updateOrderStatus('${key}', 'completed')" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white text-xs font-bold py-2.5 rounded-xl shadow transition">
+                  受け渡し完了
+                </button>
+              `}
+            </div>
+          `;
+          ordersGrid.appendChild(card);
+        });
+      });
+    }
+
+    window.updateOrderStatus = (orderId, newStatus) => {
+      update(ref(db, `orders/${orderId}`), { status: newStatus });
+    };
+
+    // 2. 登録ユーザー＆PINコード管理の監視
+    function listenToUsers() {
+      onValue(ref(db, 'registeredUsers'), (snapshot) => {
+        const data = snapshot.val() || {};
+        const tbody = document.getElementById('userTableBody');
+        const badge = document.getElementById('userCountBadge');
+        
+        tbody.innerHTML = '';
+        const userKeys = Object.keys(data);
+        badge.innerText = `${userKeys.length} 名`;
+
+        if (userKeys.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">登録ユーザーはいません</td></tr>';
+          return;
+        }
+
+        userKeys.forEach(userKey => {
+          const user = data[userKey];
+          const parts = userKey.split('_'); // 例: 1_2_15 -> 1年2組15番
+          const formattedInfo = `${parts[0]}年 ${parts[1]}組 ${parts[2]}番`;
+          const regTime = user.createdAt ? new Date(user.createdAt).toLocaleString() : '不明';
+
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-gray-50 transition";
+          tr.innerHTML = `
+            <td class="p-3 font-mono text-xs text-gray-500">${userKey}</td>
+            <td class="p-3 font-bold text-gray-800">${formattedInfo}</td>
+            <td class="p-3">
+              <span class="bg-gray-100 text-blue-600 font-mono font-bold px-2.5 py-1 rounded border border-gray-200">
+                ${user.pin}
+              </span>
+            </td>
+            <td class="p-3 text-xs text-gray-400">${regTime}</td>
+            <td class="p-3 text-right space-x-2">
+              <button onclick="window.resetUserPin('${userKey}')" class="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                PINリセット
+              </button>
+              <button onclick="window.deleteUser('${userKey}')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                削除
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      });
+    }
+
+    // PINコードの個別リセット機能
+    window.resetUserPin = (userKey) => {
+      const newPin = prompt(`【${userKey.replace(/_/g, ' ')}】 の新しい4桁のPINを入力してください:`);
+      if (!newPin) return;
+
+      if (!/^\d{4}$/.test(newPin)) {
+        alert('PINは半角数字4桁で入力してください。');
+        return;
+      }
+
+      update(ref(db, `registeredUsers/${userKey}`), { pin: newPin })
+        .then(() => alert('暗証番号（PIN）を正常に更新しました。'))
+        .catch((err) => alert('更新に失敗しました: ' + err.message));
+    };
+
+    // アカウント情報の削除機能
+    window.deleteUser = (userKey) => {
+      if (confirm(`本当に 【${userKey.replace(/_/g, ' ')}】 の登録情報を削除しますか？\n（削除された生徒は次回アクセス時に新しいPINで再登録が可能になります）`)) {
+        remove(ref(db, `registeredUsers/${userKey}`))
+          .then(() => alert('削除しました。'))
+          .catch((err) => alert('削除に失敗しました: ' + err.message));
+      }
+    };
+  </script>
+</body>
+</html>
