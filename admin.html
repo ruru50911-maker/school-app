@@ -171,6 +171,18 @@
       return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
     }
 
+    // 学年 → クラス → 出席番号 の優先順位でソートする関数
+    function sortUserKeys(keys) {
+      return keys.sort((a, b) => {
+        const [gA, cA, nA] = a.split('_').map(Number);
+        const [gB, cB, nB] = b.split('_').map(Number);
+
+        if (gA !== gB) return gA - gB; // 1. 学年で昇順
+        if (cA !== cB) return cA - cB; // 2. クラスで昇順
+        return nA - nB;                // 3. 出席番号で昇順
+      });
+    }
+
     // ランダム初期PINの一括生成・登録処理
     document.getElementById('bulkInitRandomBtn').addEventListener('click', async () => {
       if (!confirm('全生徒（1,134名分）にそれぞれ異なるランダムな初期暗証番号を再発行してデータベースに上書きしますか？')) return;
@@ -183,8 +195,8 @@
           for (let n = 1; n <= 42; n++) {
             const key = `${g}_${c}_${n}`;
             bulkData[key] = {
-              pin: generateRandomPin(), // 生徒ごとにランダムな4桁を割り当て
-              isInitial: true,          // 初回ログイン前フラグ
+              pin: generateRandomPin(),
+              isInitial: true,
               updatedAt: now
             };
           }
@@ -200,7 +212,7 @@
       }
     });
 
-    // 配布用CSV出力機能（印刷・紙配布用）
+    // 配布用CSV出力機能（1-1-1, 1-1-2... の順番で出力）
     document.getElementById('exportCsvBtn').addEventListener('click', async () => {
       const snapshot = await get(ref(db, 'registeredUsers'));
       if (!snapshot.exists()) {
@@ -209,9 +221,10 @@
       }
 
       const data = snapshot.val();
-      let csvContent = "\uFEFF学年,クラス,出席番号,初期暗証番号(PIN),ステータス\n"; // UTF-8 BOM付きで文字化け防止
+      const sortedKeys = sortUserKeys(Object.keys(data));
+      let csvContent = "\uFEFF学年,クラス,出席番号,初期暗証番号(PIN),ステータス\n";
 
-      Object.keys(data).forEach(key => {
+      sortedKeys.forEach(key => {
         const parts = key.split('_');
         const u = data[key];
         const status = u.isInitial ? "初期状態" : "変更済み";
@@ -298,15 +311,15 @@
         const badge = document.getElementById('userCountBadge');
         
         tbody.innerHTML = '';
-        const userKeys = Object.keys(data);
-        badge.innerText = `${userKeys.length} 名`;
+        const sortedUserKeys = sortUserKeys(Object.keys(data));
+        badge.innerText = `${sortedUserKeys.length} 名`;
 
-        if (userKeys.length === 0) {
+        if (sortedUserKeys.length === 0) {
           tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">データがありません。上の「一括作成」を実行してください。</td></tr>';
           return;
         }
 
-        userKeys.forEach(userKey => {
+        sortedUserKeys.forEach(userKey => {
           const user = data[userKey];
           const parts = userKey.split('_');
           const formattedInfo = `${parts[0]}年 ${parts[1]}組 ${parts[2]}番`;
