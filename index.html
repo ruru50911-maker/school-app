@@ -15,48 +15,44 @@
 
   <header class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-50">
     <h1 class="font-bold text-lg md:text-xl">🍱 学食モバイルオーダー</h1>
-    <button id="logoutBtn" class="hidden text-xs bg-blue-700 hover:bg-blue-800 text-white font-bold py-1 px-3 rounded-lg border border-blue-400">
-      ログアウト
-    </button>
   </header>
 
   <main class="flex-1 max-w-4xl w-full mx-auto p-4 pb-24">
     <div id="activeOrdersContainer" class="space-y-4 mb-6"></div>
 
-    <!-- 認証エリア -->
+    <!-- 利用者情報 ＋ PIN認証 -->
     <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6">
-      <!-- 未ログイン時の表示 -->
-      <div id="loginSection" class="text-center py-2">
-        <h2 class="text-md font-bold mb-2 text-gray-800">👤 学校アカウントでログイン</h2>
-        <p class="text-xs text-gray-500 mb-4">注文には学校指定のGoogleアカウント（@school.ed.jp）が必要です。</p>
-        <button id="googleLoginBtn" class="w-full sm:w-auto bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-2.5 px-6 rounded-xl shadow-sm inline-flex items-center justify-center gap-2 transition">
-          <svg class="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-          </svg>
-          Google アカウントでログイン
-        </button>
+      <h2 class="text-md font-bold mb-3 text-gray-800">👤 利用者認証（必須）</h2>
+      <div class="grid grid-cols-3 gap-2 mb-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">学年</label>
+          <select id="gradeSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold">
+            <option value="">選択</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">クラス</label>
+          <select id="classSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold">
+            <option value="">選択</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">出席番号</label>
+          <select id="numberSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold">
+            <option value="">選択</option>
+          </select>
+        </div>
       </div>
 
-      <!-- ログイン完了時の表示 -->
-      <div id="userInfoSection" class="hidden flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-lg" id="userAvatar">
-            👤
-          </div>
-          <div>
-            <p class="text-xs text-gray-500">注文者アカウント</p>
-            <p id="userNameDisplay" class="font-bold text-gray-800 text-sm"></p>
-            <p id="userEmailDisplay" class="text-xs text-blue-600 font-semibold"></p>
-          </div>
-        </div>
-        <span class="bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full">認証済み</span>
+      <!-- PIN（暗証番号）入力フィールド -->
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">4桁の暗証番号（マイPIN）</label>
+        <input type="password" id="pinInput" maxlength="4" placeholder="初回に決めた4桁の数字" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold tracking-widest text-center" inputmode="numeric">
+        <p class="text-[10px] text-gray-400 mt-1">※初回注文時に入力した4桁の数字があなた専用の暗証番号として登録されます（他人の成りすまし防止）。</p>
       </div>
     </div>
 
-    <!-- メニューセクション -->
+    <!-- メニュー選択 -->
     <div id="menuSection">
       <h2 class="text-lg font-bold mb-3 text-gray-800">🍱 メニュー選択</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="menuList"></div>
@@ -98,19 +94,10 @@
     </div>
   </div>
 
-  <!-- Firebase Script -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-    import { 
-      getAuth, 
-      GoogleAuthProvider, 
-      signInWithPopup, 
-      signOut, 
-      onAuthStateChanged 
-    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getDatabase, ref, push, onValue, runTransaction, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Firebaseの設定
     const firebaseConfig = {
       apiKey: "AIzaSyAZ53Gowy1BoIXT5nGLC_MdFJ3vpfqiGp0",
       authDomain: "school-order-app.firebaseapp.com",
@@ -121,70 +108,32 @@
       appId: "1:1030918225373:web:353c77fecd49d4a94f8a34"
     };
 
-    // 制限対象の学校ドメイン（※実際の学校のドメインに変更してください）
-    const ALLOWED_DOMAIN = "school.ed.jp";
-
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ hd: ALLOWED_DOMAIN });
-
-    let currentUser = null;
-    let cart = [];
-    let myOrderIds = JSON.parse(localStorage.getItem('firebase_student_order_ids') || '[]');
 
     const MENU_ITEMS = [
       { id: 1, name: '冷やしうどん', price: 360, emoji: '🍜' }
     ];
 
-    // UI要素の取得
-    const loginSection = document.getElementById('loginSection');
-    const userInfoSection = document.getElementById('userInfoSection');
-    const userNameDisplay = document.getElementById('userNameDisplay');
-    const userEmailDisplay = document.getElementById('userEmailDisplay');
-    const googleLoginBtn = document.getElementById('googleLoginBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
+    let cart = [];
+    let myOrderIds = JSON.parse(localStorage.getItem('firebase_student_order_ids') || '[]');
 
-    // ログイン処理
-    googleLoginBtn.addEventListener('click', async () => {
-      try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
+    // Select要素の初期化
+    const gradeSel = document.getElementById('gradeSelect');
+    const classSel = document.getElementById('classSelect');
+    const numSel = document.getElementById('numberSelect');
+    const pinInput = document.getElementById('pinInput');
 
-        // ドメインチェック
-        if (!user.email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-          alert(`許可されていないアカウントです。@${ALLOWED_DOMAIN} のメールアドレスでログインしてください。`);
-          await signOut(auth);
-        }
-      } catch (error) {
-        console.error("ログインエラー:", error);
-        alert("ログインに失敗しました。");
-      }
-    });
+    for (let i = 1; i <= 3; i++) gradeSel.innerHTML += `<option value="${i}">${i}年</option>`;
+    for (let i = 1; i <= 9; i++) classSel.innerHTML += `<option value="${i}">${i}組</option>`;
+    for (let i = 1; i <= 42; i++) numSel.innerHTML += `<option value="${i}">${i}番</option>`;
 
-    // ログアウト処理
-    logoutBtn.addEventListener('click', async () => {
-      await signOut(auth);
-      alert("ログアウトしました。");
-    });
-
-    // 認証状態の監視
-    onAuthStateChanged(auth, (user) => {
-      if (user && user.email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-        currentUser = user;
-        userNameDisplay.innerText = user.displayName || '生徒';
-        userEmailDisplay.innerText = user.email;
-        loginSection.classList.add('hidden');
-        userInfoSection.classList.remove('hidden');
-        logoutBtn.classList.remove('hidden');
-      } else {
-        currentUser = null;
-        loginSection.classList.remove('hidden');
-        userInfoSection.classList.add('hidden');
-        logoutBtn.classList.add('hidden');
-      }
-    });
+    // ローカルストレージに保存された前回の入力（学年・クラス・番号・PIN）を復元
+    const savedUserInfo = JSON.parse(localStorage.getItem('my_school_user_info') || '{}');
+    if (savedUserInfo.grade) gradeSel.value = savedUserInfo.grade;
+    if (savedUserInfo.class) classSel.value = savedUserInfo.class;
+    if (savedUserInfo.number) numSel.value = savedUserInfo.number;
+    if (savedUserInfo.pin) pinInput.value = savedUserInfo.pin;
 
     // メニュー表示
     const list = document.getElementById('menuList');
@@ -217,12 +166,44 @@
     }
 
     const modal = document.getElementById('paymentModal');
-    document.getElementById('openPaymentBtn').addEventListener('click', () => {
-      if (!currentUser) {
-        alert('注文するには、学校のアカウントでログインしてください。');
+    
+    // お支払いボタン押下時のバリデーション
+    document.getElementById('openPaymentBtn').addEventListener('click', async () => {
+      const grade = gradeSel.value;
+      const classNum = classSel.value;
+      const studentNum = numSel.value;
+      const pin = pinInput.value.trim();
+
+      if (!grade || !classNum || !studentNum) {
+        alert('学年・クラス・出席番号を選択してください。');
         return;
       }
-      modal.classList.remove('hidden');
+
+      if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+        alert('4桁の数字の暗証番号（PIN）を入力してください。');
+        return;
+      }
+
+      // PIN認証（初回登録 または 認証不一致チェック）
+      const userKey = `${grade}_${classNum}_${studentNum}`;
+      const userPinRef = ref(db, `registeredUsers/${userKey}`);
+
+      try {
+        const snapshot = await get(userPinRef);
+        if (snapshot.exists()) {
+          // 既存ユーザー：入力されたPINと照合
+          const registeredPin = snapshot.val().pin;
+          if (registeredPin !== pin) {
+            alert('暗証番号（PIN）が正しくありません。他人の学籍番号での注文はできません。');
+            return;
+          }
+        }
+        // バリデーションクリアでモーダル開く
+        modal.classList.remove('hidden');
+      } catch (err) {
+        console.error("PIN検証エラー:", err);
+        alert('通信エラーが発生しました。時間を置いてやり直してください。');
+      }
     });
 
     document.getElementById('closePaymentBtn').addEventListener('click', () => {
@@ -230,10 +211,21 @@
     });
 
     window.confirmOrder = (paymentMethod) => {
-      if (cart.length === 0 || !currentUser) return;
+      if (cart.length === 0) return;
+
+      const userDetails = {
+        grade: gradeSel.value,
+        class: classSel.value,
+        number: numSel.value,
+        pin: pinInput.value.trim()
+      };
+
+      // 次回の入力用に端末へ保存
+      localStorage.setItem('my_school_user_info', JSON.stringify(userDetails));
 
       if (paymentMethod === 'PayPay') {
         const pendingOrder = {
+          ...userDetails,
           items: cart,
           paymentMethod: 'PayPay'
         };
@@ -242,26 +234,32 @@
         return;
       }
 
-      executeOrderCreation(cart, paymentMethod);
+      executeOrderCreation(userDetails.grade, userDetails.class, userDetails.number, userDetails.pin, cart, paymentMethod);
     };
 
-    function executeOrderCreation(orderItems, paymentMethod) {
-      if (!currentUser) return;
+    async function executeOrderCreation(grade, classNum, studentNum, pin, orderItems, paymentMethod) {
+      const userKey = `${grade}_${classNum}_${studentNum}`;
+      const userPinRef = ref(db, `registeredUsers/${userKey}`);
 
-      const counterRef = ref(db, 'orderCounter');
+      try {
+        // 注文確定時にPINをデータベースへ紐付け（初回なら登録、2回目以降は更新不要）
+        const userSnapshot = await get(userPinRef);
+        if (!userSnapshot.exists()) {
+          await runTransaction(userPinRef, () => ({ pin: pin, createdAt: Date.now() }));
+        }
 
-      runTransaction(counterRef, (currentValue) => {
-        return (currentValue || 0) + 1;
-      }).then((result) => {
-        const nextNum = result.snapshot.val();
+        const gradePrefixMap = { '1': 'A', '2': 'B', '3': 'C' };
+        const prefix = gradePrefixMap[grade] || 'A';
+        const counterRef = ref(db, 'orderCounter');
+
+        const counterResult = await runTransaction(counterRef, (currentValue) => (currentValue || 0) + 1);
+        const nextNum = counterResult.snapshot.val();
         const formattedNum = String(nextNum).padStart(3, '0');
-        const orderNum = `ORD-${formattedNum}`;
+        const orderNum = `${prefix}-${formattedNum}`;
 
         const newOrder = {
           orderNumber: orderNum,
-          studentInfo: `${currentUser.displayName} (${currentUser.email})`,
-          userEmail: currentUser.email,
-          userId: currentUser.uid,
+          studentInfo: `${grade}年${classNum}組${studentNum}番`,
           items: orderItems,
           paymentMethod: paymentMethod,
           status: 'preparing',
@@ -276,17 +274,25 @@
         updateCartUI();
         modal.classList.add('hidden');
         listenMyOrders();
-      }).catch((err) => {
+      } catch (err) {
         console.error("注文処理エラー:", err);
-      });
+        alert("注文の作成に失敗しました。");
+      }
     }
 
     function checkPendingPayPayOrder() {
       const pendingData = sessionStorage.getItem('pending_paypay_order');
-      if (pendingData && currentUser) {
+      if (pendingData) {
         const pendingOrder = JSON.parse(pendingData);
         sessionStorage.removeItem('pending_paypay_order');
-        executeOrderCreation(pendingOrder.items, pendingOrder.paymentMethod);
+        executeOrderCreation(
+          pendingOrder.grade,
+          pendingOrder.class,
+          pendingOrder.number,
+          pendingOrder.pin,
+          pendingOrder.items,
+          pendingOrder.paymentMethod
+        );
       }
     }
 
