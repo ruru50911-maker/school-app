@@ -15,9 +15,9 @@
       <span class="text-2xl">⚙️</span>
       <h1 class="font-bold text-lg md:text-xl">学食スタッフ管理画面（リアルタイム）</h1>
     </div>
-    <!-- 注文データのみを安全にクリアするボタンに変更 -->
-    <button id="clearOrdersBtn" class="bg-red-700 hover:bg-red-800 text-xs px-3 py-1.5 rounded-lg text-white transition border border-red-500 font-bold shadow">
-      🗑️ 現在の注文情報をすべてクリア
+    <!-- 営業状態切り替えボタン -->
+    <button id="toggleOperationBtn" class="text-xs px-4 py-2 rounded-xl text-white transition font-bold shadow-md hidden">
+      読み込み中...
     </button>
   </header>
 
@@ -215,6 +215,7 @@
     const FOOD_EMOJIS = ['🍱', '🍜', '🍛', '🍙', '🥪', '🍟', '🍔', '🥗', '🍝', '🍢', '🥟', '🍤', '🥐', '🍦', '🍩', '🧃'];
     let salesChartInstance = null;
     let cachedOrders = {};
+    let isStoreOpen = false;
 
     // 絵文字ピッカーの初期化
     const emojiPicker = document.getElementById('emojiPicker');
@@ -254,6 +255,45 @@
       }
     };
 
+    // --- 営業状態の監視と切り替え ---
+    const toggleOperationBtn = document.getElementById('toggleOperationBtn');
+    
+    onValue(ref(db, 'storeStatus/isOpen'), (snapshot) => {
+      isStoreOpen = snapshot.val() || false;
+      toggleOperationBtn.classList.remove('hidden');
+      
+      if (isStoreOpen) {
+        toggleOperationBtn.innerHTML = '🛑 本日の営業を終了する';
+        toggleOperationBtn.className = 'bg-red-600 hover:bg-red-700 text-xs px-4 py-2 rounded-xl text-white transition font-bold shadow-md border border-red-500';
+      } else {
+        toggleOperationBtn.innerHTML = '▶️ 営業を開始する';
+        toggleOperationBtn.className = 'bg-blue-600 hover:bg-blue-700 text-xs px-4 py-2 rounded-xl text-white transition font-bold shadow-md border border-blue-500';
+      }
+    });
+
+    toggleOperationBtn.addEventListener('click', async () => {
+      if (isStoreOpen) {
+        if (confirm("本日の営業を終了しますか？\n（注文受付を停止し、次回の注文番号をリセットします。履歴は残ります）")) {
+          try {
+            await update(ref(db, 'storeStatus'), { isOpen: false });
+            await set(ref(db, 'orderCounter'), null); // カウンターをリセット
+            alert("営業を終了し、注文カウンターをリセットしました。");
+          } catch (error) {
+            alert("エラーが発生しました: " + error.message);
+          }
+        }
+      } else {
+        if (confirm("営業を開始しますか？\n（注文受付を再開します）")) {
+          try {
+            await update(ref(db, 'storeStatus'), { isOpen: true });
+            alert("営業を開始しました。");
+          } catch (error) {
+            alert("エラーが発生しました: " + error.message);
+          }
+        }
+      }
+    });
+
     // 注文ステータス更新
     window.updateStatus = (orderId, newStatus) => {
       update(ref(db, `orders/${orderId}`), { status: newStatus });
@@ -265,19 +305,6 @@
         remove(ref(db, `orders/${orderId}`));
       }
     };
-
-    // ★修正: メニューやダッシュボードの設定は残し、注文データとカウンターのみをクリアする
-    document.getElementById('clearOrdersBtn').addEventListener('click', async () => {
-      if (confirm("現在のすべての注文情報・履歴をクリアしますか？\n（※メニュー設定やダッシュボードの基本デザイン・システム構成はそのまま維持されます）")) {
-        try {
-          await set(ref(db, 'orders'), null);
-          await set(ref(db, 'orderCounter'), null);
-          alert("注文情報をすべてクリアしました。");
-        } catch (error) {
-          alert("エラーが発生しました: " + error.message);
-        }
-      }
-    });
 
     // リアルタイム注文データの監視
     onValue(ref(db, 'orders'), (snapshot) => {
