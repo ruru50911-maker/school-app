@@ -56,7 +56,7 @@
         </div>
 
         <p id="pinHelpText" class="text-[11px] text-gray-500 mt-1">
-          学校から配布された紙に書いてある初期暗証番号を入力してください。
+          初期暗証番号を入力してください
         </p>
       </div>
     </div>
@@ -157,6 +157,7 @@
     const numSel = document.getElementById('numberSelect');
     const pinInput = document.getElementById('pinInput');
     const userStatusBadge = document.getElementById('userStatusBadge');
+    const pinHelpText = document.getElementById('pinHelpText');
 
     for (let i = 1; i <= 3; i++) gradeSel.innerHTML += `<option value="${i}">${i}年</option>`;
     for (let i = 1; i <= 9; i++) classSel.innerHTML += `<option value="${i}">${i}組</option>`;
@@ -164,7 +165,10 @@
 
     async function checkUserStatus() {
       const g = gradeSel.value, c = classSel.value, n = numSel.value;
-      if (!g || !c || !n) return;
+      if (!g || !c || !n) {
+        pinHelpText.innerText = "初期暗証番号を入力してください";
+        return;
+      }
 
       const userKey = `${g}_${c}_${n}`;
       const userSnap = await get(ref(db, `registeredUsers/${userKey}`));
@@ -174,13 +178,16 @@
         if (data.isInitial) {
           userStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
           userStatusBadge.innerText = "初期パスワードでログインしてください";
+          pinHelpText.innerText = "初期暗証番号を入力してください";
         } else {
           userStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700";
           userStatusBadge.innerText = "登録済みユーザー";
+          pinHelpText.innerText = "暗証番号を入力してください";
         }
       } else {
         userStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700";
         userStatusBadge.innerText = "未登録（管理者に連絡してください）";
+        pinHelpText.innerText = "初期暗証番号を入力してください";
       }
     }
 
@@ -285,6 +292,7 @@
 
       pinInput.value = newPin;
       alert('暗証番号を変更しました！');
+      checkUserStatus();
       changePinModal.classList.add('hidden');
       paymentModal.classList.remove('hidden');
     });
