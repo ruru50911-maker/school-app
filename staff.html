@@ -15,8 +15,9 @@
       <span class="text-2xl">⚙️</span>
       <h1 class="font-bold text-lg md:text-xl">学食スタッフ管理画面（リアルタイム）</h1>
     </div>
-    <button id="clearBtn" class="bg-emerald-900 hover:bg-emerald-950 text-xs px-3 py-1.5 rounded-lg text-emerald-100 transition border border-emerald-600">
-      全注文データ初期化
+    <!-- 注文データのみを安全にクリアするボタンに変更 -->
+    <button id="clearOrdersBtn" class="bg-red-700 hover:bg-red-800 text-xs px-3 py-1.5 rounded-lg text-white transition border border-red-500 font-bold shadow">
+      🗑️ 現在の注文情報をすべてクリア
     </button>
   </header>
 
@@ -265,11 +266,16 @@
       }
     };
 
-    // 全消去
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      if (confirm("すべての注文・売上データを初期化しますか？（この操作は元に戻せません）")) {
-        remove(ref(db, 'orders'));
-        remove(ref(db, 'orderCounter'));
+    // ★修正: メニューやダッシュボードの設定は残し、注文データとカウンターのみをクリアする
+    document.getElementById('clearOrdersBtn').addEventListener('click', async () => {
+      if (confirm("現在のすべての注文情報・履歴をクリアしますか？\n（※メニュー設定やダッシュボードの基本デザイン・システム構成はそのまま維持されます）")) {
+        try {
+          await set(ref(db, 'orders'), null);
+          await set(ref(db, 'orderCounter'), null);
+          alert("注文情報をすべてクリアしました。");
+        } catch (error) {
+          alert("エラーが発生しました: " + error.message);
+        }
       }
     });
 
@@ -561,7 +567,7 @@
             </div>
             <div class="flex items-center gap-2">
               <div class="flex items-center text-xs text-gray-500">
-                ¥<input type="number" id="price-input-${key}" defaultValue="${item.price}" class="w-20 border rounded p-1 text-xs text-right ml-1">
+                ¥<input type="number" id="price-input-${key}" value="${item.price}" class="w-20 border rounded p-1 text-xs text-right ml-1">
               </div>
               <button onclick="window.updateProductInfo('${key}')" class="bg-gray-700 hover:bg-gray-800 text-white text-xs px-2.5 py-1.5 rounded-lg font-bold">
                 更新
