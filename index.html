@@ -151,6 +151,12 @@
     let menuItems = {};
     let cart = [];
     let myOrderIds = JSON.parse(localStorage.getItem('firebase_student_order_ids') || '[]');
+    let isStoreOpen = false;
+
+    // 店舗の営業状態（storeStatus/isOpen）をリアルタイム監視
+    onValue(ref(db, 'storeStatus/isOpen'), (snapshot) => {
+      isStoreOpen = snapshot.val() === true;
+    });
 
     const gradeSel = document.getElementById('gradeSelect');
     const classSel = document.getElementById('classSelect');
@@ -233,6 +239,11 @@
     });
 
     window.addToCart = (menuId) => {
+      if (!isStoreOpen) {
+        alert("ただいま営業時間外のため注文できません。");
+        return;
+      }
+
       const item = menuItems[menuId];
       if (item && !item.isSoldOut) {
         cart.push({ id: menuId, name: item.name, price: item.price });
@@ -252,6 +263,10 @@
     const changePinModal = document.getElementById('changePinModal');
 
     document.getElementById('openPaymentBtn').addEventListener('click', async () => {
+      if (!isStoreOpen) {
+        return alert('ただいま営業時間外のため注文できません。');
+      }
+
       const g = gradeSel.value, c = classSel.value, n = numSel.value, pin = pinInput.value.trim();
 
       if (!g || !c || !n) return alert('学年・クラス・出席番号を選択してください。');
@@ -277,6 +292,10 @@
     });
 
     document.getElementById('saveNewPinBtn').addEventListener('click', async () => {
+      if (!isStoreOpen) {
+        return alert('ただいま営業時間外のため注文できません。');
+      }
+
       const newPin = document.getElementById('newPinInput').value.trim();
       const confirmNewPin = document.getElementById('confirmNewPinInput').value.trim();
 
@@ -302,6 +321,10 @@
     });
 
     window.confirmOrder = (paymentMethod) => {
+      if (!isStoreOpen) {
+        return alert('ただいま営業時間外のため注文できません。');
+      }
+
       if (cart.length === 0) return;
 
       const userDetails = {
@@ -324,6 +347,11 @@
     };
 
     async function executeOrderCreation(grade, classNum, studentNum, orderItems, paymentMethod) {
+      if (!isStoreOpen) {
+        alert("ただいま営業時間外のため注文を処理できません。");
+        return;
+      }
+
       try {
         const gradePrefixMap = { '1': 'A', '2': 'B', '3': 'C' };
         const prefix = gradePrefixMap[grade] || 'A';
