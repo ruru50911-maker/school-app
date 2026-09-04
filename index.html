@@ -3,137 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>学食モバイルオーダー</title>
+  <title>学食モバイル注文</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: { extend: { animation: { 'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite' } } }
-    }
-  </script>
 </head>
-<body class="bg-gray-100 text-gray-900 font-sans min-h-screen flex flex-col">
+<body class="bg-gray-100 text-gray-900 font-sans min-h-screen pb-24">
 
-  <header class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-50">
-    <h1 class="font-bold text-lg md:text-xl">🍱 学食モバイルオーダー</h1>
+  <!-- ヘッダー -->
+  <header class="bg-emerald-600 text-white p-4 shadow-md sticky top-0 z-40 flex justify-between items-center">
+    <div>
+      <h1 class="font-bold text-lg">🍱 学食オンライン注文</h1>
+      <p class="text-xs text-emerald-100">スマホで事前注文＆受け取り</p>
+    </div>
+    <!-- 営業状態バッジ -->
+    <div id="storeStatusBadge" class="text-xs px-3 py-1 rounded-full font-bold bg-gray-400 text-white">
+      確認中...
+    </div>
   </header>
 
-  <main class="flex-1 max-w-4xl w-full mx-auto p-4 pb-24">
-    <div id="activeOrdersContainer" class="space-y-4 mb-6"></div>
+  <!-- 営業時間外のアラート（準備中のみ表示） -->
+  <div id="closedBanner" class="hidden bg-amber-500 text-white text-xs font-bold p-3 text-center shadow-inner">
+    ⚠️ ただいま営業時間外のため、ご注文を受け付けできません。
+  </div>
 
-    <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6">
-      <div class="flex justify-between items-center mb-3">
-        <h2 class="text-md font-bold text-gray-800">👤 本人認証</h2>
-        <span id="userStatusBadge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
-          学籍情報を選択してください
-        </span>
+  <main class="max-w-md mx-auto p-4 space-y-6">
+
+    <!-- アクティブな注文ステータス (自分の注文がある場合表示) -->
+    <section id="myOrderStatus" class="hidden bg-white p-4 rounded-2xl border-2 border-emerald-500 shadow-md space-y-3">
+      <div class="flex justify-between items-center border-b pb-2">
+        <span class="text-xs font-bold text-gray-500">現在の注文状況</span>
+        <span id="myOrderNumber" class="text-xl font-black text-emerald-600">#---</span>
       </div>
+      <div class="text-center py-2">
+        <div id="myStatusBadge" class="inline-block px-4 py-1.5 rounded-full text-sm font-bold bg-orange-100 text-orange-800">
+          調理中...
+        </div>
+        <p id="myStatusDesc" class="text-xs text-gray-500 mt-2">出来上がると画面と音で通知されます</p>
+      </div>
+    </section>
 
-      <div class="grid grid-cols-3 gap-2 mb-3">
+    <!-- 生徒情報入力 -->
+    <section class="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
+      <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider">注文者情報</h2>
+      <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="block text-xs text-gray-500 mb-1">学年</label>
-          <select id="gradeSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold">
-            <option value="">選択</option>
-          </select>
+          <label class="block text-xs font-bold text-gray-700 mb-1">組 / 席番号</label>
+          <input type="text" id="studentClass" placeholder="例: 2-A" class="w-full border rounded-xl p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
         </div>
         <div>
-          <label class="block text-xs text-gray-500 mb-1">クラス</label>
-          <select id="classSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold">
-            <option value="">選択</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs text-gray-500 mb-1">出席番号</label>
-          <select id="numberSelect" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm font-bold">
-            <option value="">選択</option>
-          </select>
+          <label class="block text-xs font-bold text-gray-700 mb-1">お名前</label>
+          <input type="text" id="studentName" placeholder="例: 山田" class="w-full border rounded-xl p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
         </div>
       </div>
+    </section>
 
-      <div id="pinSection" class="space-y-2 pt-2 border-t border-gray-100">
-        <div>
-          <label id="pinLabel" class="block text-xs text-gray-500 mb-1">暗証番号（PIN）</label>
-          <input type="password" id="pinInput" maxlength="4" placeholder="4桁の数字" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-sm font-bold tracking-widest text-center" inputmode="numeric">
-        </div>
-
-        <p id="pinHelpText" class="text-[11px] text-gray-500 mt-1">
-          初期暗証番号を入力してください
-        </p>
+    <!-- メニュー一覧 -->
+    <section class="space-y-3">
+      <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider">本日のメニュー</h2>
+      <div id="menuContainer" class="space-y-3">
+        <p class="text-xs text-gray-400 text-center py-6">メニューを読み込み中...</p>
       </div>
-    </div>
+    </section>
 
-    <!-- メニュー選択 -->
-    <div id="menuSection">
-      <h2 class="text-lg font-bold mb-3 text-gray-800">🍱 メニュー選択</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="menuList">
-        <p class="text-xs text-gray-400 py-4 col-span-2 text-center">メニューを読み込み中...</p>
-      </div>
-    </div>
   </main>
 
-  <!-- カートバー -->
-  <div id="cartBar" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-2xl z-40 hidden">
-    <div class="max-w-4xl mx-auto flex justify-between items-center">
+  <!-- カート・注文バー (画面下部固定) -->
+  <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 shadow-lg z-30">
+    <div class="max-w-md mx-auto flex justify-between items-center gap-3">
       <div>
-        <p class="text-xs text-gray-500" id="cartCount">合計 0 点</p>
-        <p class="text-xl font-bold text-blue-600" id="cartTotal">¥0</p>
+        <div class="text-xs text-gray-400 font-bold">合計金額</div>
+        <div id="totalPrice" class="text-xl font-black text-emerald-600">¥0</div>
       </div>
-      <button id="openPaymentBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md">
-        お支払いへ進む
-      </button>
-    </div>
-  </div>
-
-  <!-- 初回PIN変更モーダル -->
-  <div id="changePinModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
-      <div class="text-center">
-        <span class="text-3xl">🔑</span>
-        <h3 class="text-lg font-bold text-gray-800 mt-1">新しい暗証番号の設定</h3>
-        <p class="text-xs text-gray-500 mt-1">初期パスワードから自分だけの新しい4桁の暗証番号に変更してください。</p>
-      </div>
-
-      <div class="space-y-3">
-        <div>
-          <label class="block text-xs text-gray-500 mb-1">新しい暗証番号（4桁）</label>
-          <input type="password" id="newPinInput" maxlength="4" placeholder="新しい4桁の数字" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-sm font-bold tracking-widest text-center" inputmode="numeric">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-500 mb-1">確認（もう一度入力）</label>
-          <input type="password" id="confirmNewPinInput" maxlength="4" placeholder="もう一度入力" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 text-sm font-bold tracking-widest text-center" inputmode="numeric">
-        </div>
-      </div>
-
-      <button id="saveNewPinBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition">
-        変更して注文に進む
-      </button>
-    </div>
-  </div>
-
-  <!-- 決済モーダル -->
-  <div id="paymentModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
-      <h3 class="text-lg font-bold text-center text-gray-800">決済方法を選択</h3>
-      <p class="text-xs text-gray-500 text-center">お支払い方法を選択して注文を確定します。</p>
-
-      <div class="space-y-3">
-        <button onclick="window.confirmOrder('PayPay')" class="w-full bg-red-500 hover:bg-red-600 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition text-center text-lg">
-          PayPay で支払う
-        </button>
-
-        <button onclick="window.confirmOrder('au PAY')" class="w-full bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition text-center text-lg">
-          au PAY で支払う
-        </button>
-      </div>
-
-      <button id="closePaymentBtn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 rounded-xl text-sm transition">
-        キャンセル
+      <button id="submitOrderBtn" disabled onclick="window.submitOrder()" class="flex-1 bg-gray-300 text-gray-500 font-bold py-3 px-4 rounded-xl text-sm transition shadow-md disabled:cursor-not-allowed">
+        営業時間外
       </button>
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue, runTransaction, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, push, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAZ53Gowy1BoIXT5nGLC_MdFJ3vpfqiGp0",
@@ -148,267 +96,245 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let menuItems = {};
-    let cart = [];
-    let myOrderIds = JSON.parse(localStorage.getItem('firebase_student_order_ids') || '[]');
+    let cart = {}; // { menuId: { name, price, count } }
+    let isStoreOpen = false;
+    let menuData = {};
+    let activeOrderId = localStorage.getItem('activeOrderId') || null;
 
-    const gradeSel = document.getElementById('gradeSelect');
-    const classSel = document.getElementById('classSelect');
-    const numSel = document.getElementById('numberSelect');
-    const pinInput = document.getElementById('pinInput');
-    const userStatusBadge = document.getElementById('userStatusBadge');
-    const pinHelpText = document.getElementById('pinHelpText');
+    // --- 1. 営業状態の監視 ---
+    onValue(ref(db, 'storeStatus/isOpen'), (snapshot) => {
+      isStoreOpen = snapshot.val() || false;
+      const statusBadge = document.getElementById('storeStatusBadge');
+      const closedBanner = document.getElementById('closedBanner');
 
-    for (let i = 1; i <= 3; i++) gradeSel.innerHTML += `<option value="${i}">${i}年</option>`;
-    for (let i = 1; i <= 9; i++) classSel.innerHTML += `<option value="${i}">${i}組</option>`;
-    for (let i = 1; i <= 42; i++) numSel.innerHTML += `<option value="${i}">${i}番</option>`;
-
-    async function checkUserStatus() {
-      const g = gradeSel.value, c = classSel.value, n = numSel.value;
-      if (!g || !c || !n) {
-        pinHelpText.innerText = "初期暗証番号を入力してください";
-        return;
-      }
-
-      const userKey = `${g}_${c}_${n}`;
-      const userSnap = await get(ref(db, `registeredUsers/${userKey}`));
-
-      if (userSnap.exists()) {
-        const data = userSnap.val();
-        if (data.isInitial) {
-          userStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
-          userStatusBadge.innerText = "初期パスワードでログインしてください";
-          pinHelpText.innerText = "初期暗証番号を入力してください";
-        } else {
-          userStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700";
-          userStatusBadge.innerText = "登録済みユーザー";
-          pinHelpText.innerText = "暗証番号を入力してください";
-        }
+      if (isStoreOpen) {
+        statusBadge.innerText = "● 営業中";
+        statusBadge.className = "text-xs px-3 py-1 rounded-full font-bold bg-emerald-800 text-emerald-100";
+        closedBanner.classList.add('hidden');
       } else {
-        userStatusBadge.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700";
-        userStatusBadge.innerText = "未登録（管理者に連絡してください）";
-        pinHelpText.innerText = "初期暗証番号を入力してください";
+        statusBadge.innerText = "準備中";
+        statusBadge.className = "text-xs px-3 py-1 rounded-full font-bold bg-gray-500 text-white";
+        closedBanner.classList.remove('hidden');
       }
-    }
+      updateCartUI();
+    });
 
-    [gradeSel, classSel, numSel].forEach(el => el.addEventListener('change', checkUserStatus));
-
-    const savedUserInfo = JSON.parse(localStorage.getItem('my_school_user_info') || '{}');
-    if (savedUserInfo.grade) gradeSel.value = savedUserInfo.grade;
-    if (savedUserInfo.class) classSel.value = savedUserInfo.class;
-    if (savedUserInfo.number) numSel.value = savedUserInfo.number;
-    if (savedUserInfo.pin) pinInput.value = savedUserInfo.pin;
-    checkUserStatus();
-
-    // データベースからメニューをリアルタイム取得して表示
+    // --- 2. メニューのリアルタイム表示 ---
     onValue(ref(db, 'menu'), (snapshot) => {
-      menuItems = snapshot.val() || {};
-      const list = document.getElementById('menuList');
-      const keys = Object.keys(menuItems);
+      menuData = snapshot.val() || {};
+      renderMenu();
+    });
+
+    function renderMenu() {
+      const container = document.getElementById('menuContainer');
+      const keys = Object.keys(menuData);
 
       if (keys.length === 0) {
-        list.innerHTML = '<p class="text-xs text-gray-400 py-4 col-span-2 text-center">現在利用可能なメニューがありません。</p>';
+        container.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">現在登録されている商品はありません。</p>';
         return;
       }
 
-      list.innerHTML = keys.map(key => {
-        const item = menuItems[key];
+      container.innerHTML = keys.map(id => {
+        const item = menuData[id];
         const isSoldOut = item.isSoldOut || false;
+        const count = cart[id] ? cart[id].count : 0;
+
         return `
-          <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center ${isSoldOut ? 'opacity-60 bg-gray-50' : ''}">
+          <div class="bg-white p-3.5 rounded-2xl border shadow-sm flex justify-between items-center ${isSoldOut ? 'opacity-60 bg-gray-50' : ''}">
             <div class="flex items-center gap-3">
               <span class="text-3xl">${item.emoji || '🍱'}</span>
               <div>
-                <p class="font-bold text-gray-800">${item.name}</p>
-                <p class="text-blue-600 font-semibold">¥${item.price}</p>
+                <div class="font-bold text-gray-800 text-sm">${item.name}</div>
+                <div class="text-xs font-mono font-bold text-emerald-600">¥${item.price.toLocaleString()}</div>
               </div>
             </div>
-            ${isSoldOut ? 
-              `<span class="bg-gray-300 text-gray-600 font-bold px-3 py-1.5 rounded-lg text-xs">売り切れ</span>` : 
-              `<button onclick="window.addToCart('${key}')" class="bg-blue-50 text-blue-600 font-bold px-4 py-2 rounded-lg text-sm hover:bg-blue-100">＋ 追加</button>`
-            }
+            
+            ${isSoldOut ? `
+              <span class="text-xs font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-lg border border-red-200">売り切れ</span>
+            ` : `
+              <div class="flex items-center gap-2">
+                ${count > 0 ? `
+                  <button onclick="window.changeQuantity('${id}', -1)" class="w-8 h-8 bg-gray-100 font-bold text-gray-700 rounded-xl hover:bg-gray-200 flex items-center justify-center">-</button>
+                  <span class="font-bold text-sm min-w-[16px] text-center">${count}</span>
+                ` : ''}
+                <button onclick="window.changeQuantity('${id}', 1)" class="w-8 h-8 bg-emerald-600 font-bold text-white rounded-xl hover:bg-emerald-700 flex items-center justify-center shadow">+</button>
+              </div>
+            `}
           </div>
         `;
       }).join('');
-    });
-
-    window.addToCart = (menuId) => {
-      const item = menuItems[menuId];
-      if (item && !item.isSoldOut) {
-        cart.push({ id: menuId, name: item.name, price: item.price });
-        updateCartUI();
-      }
-    };
-
-    function updateCartUI() {
-      const bar = document.getElementById('cartBar');
-      if (cart.length === 0) { bar.classList.add('hidden'); return; }
-      bar.classList.remove('hidden');
-      document.getElementById('cartCount').innerText = `合計 ${cart.length} 点`;
-      document.getElementById('cartTotal').innerText = `¥${cart.reduce((sum, item) => sum + item.price, 0)}`;
     }
 
-    const paymentModal = document.getElementById('paymentModal');
-    const changePinModal = document.getElementById('changePinModal');
-
-    document.getElementById('openPaymentBtn').addEventListener('click', async () => {
-      const g = gradeSel.value, c = classSel.value, n = numSel.value, pin = pinInput.value.trim();
-
-      if (!g || !c || !n) return alert('学年・クラス・出席番号を選択してください。');
-      if (!pin || pin.length !== 4) return alert('4桁の暗証番号を入力してください。');
-
-      const userKey = `${g}_${c}_${n}`;
-      const userSnap = await get(ref(db, `registeredUsers/${userKey}`));
-
-      if (!userSnap.exists()) {
-        return alert('学籍情報が登録されていません。管理者に連絡してください。');
-      }
-
-      const userData = userSnap.val();
-      if (userData.pin !== pin) {
-        return alert('暗証番号（PIN）が一致しません。');
-      }
-
-      if (userData.isInitial) {
-        changePinModal.classList.remove('hidden');
-      } else {
-        paymentModal.classList.remove('hidden');
-      }
-    });
-
-    document.getElementById('saveNewPinBtn').addEventListener('click', async () => {
-      const newPin = document.getElementById('newPinInput').value.trim();
-      const confirmNewPin = document.getElementById('confirmNewPinInput').value.trim();
-
-      if (!/^\d{4}$/.test(newPin)) return alert('新しい暗証番号は4桁の数字で入力してください。');
-      if (newPin !== confirmNewPin) return alert('確認用暗証番号が一致しません。');
-
-      const userKey = `${gradeSel.value}_${classSel.value}_${numSel.value}`;
-      await update(ref(db, `registeredUsers/${userKey}`), {
-        pin: newPin,
-        isInitial: false,
-        updatedAt: Date.now()
-      });
-
-      pinInput.value = newPin;
-      alert('暗証番号を変更しました！');
-      checkUserStatus();
-      changePinModal.classList.add('hidden');
-      paymentModal.classList.remove('hidden');
-    });
-
-    document.getElementById('closePaymentBtn').addEventListener('click', () => {
-      paymentModal.classList.add('hidden');
-    });
-
-    window.confirmOrder = (paymentMethod) => {
-      if (cart.length === 0) return;
-
-      const userDetails = {
-        grade: gradeSel.value,
-        class: classSel.value,
-        number: numSel.value,
-        pin: pinInput.value.trim()
-      };
-
-      localStorage.setItem('my_school_user_info', JSON.stringify(userDetails));
-
-      if (paymentMethod === 'PayPay') {
-        const pendingOrder = { ...userDetails, items: cart, paymentMethod: 'PayPay' };
-        sessionStorage.setItem('pending_paypay_order', JSON.stringify(pendingOrder));
-        window.location.href = "https://qr.paypay.ne.jp/p2p01_a2ZopZe9E0oZdWWc";
+    // カート操作
+    window.changeQuantity = (id, delta) => {
+      if (!isStoreOpen) {
+        alert("ただいま営業時間外のため注文できません。");
         return;
       }
 
-      executeOrderCreation(userDetails.grade, userDetails.class, userDetails.number, cart, paymentMethod);
+      const item = menuData[id];
+      if (!item) return;
+
+      if (!cart[id]) {
+        cart[id] = { id, name: item.name, price: item.price, count: 0 };
+      }
+
+      cart[id].count += delta;
+
+      if (cart[id].count <= 0) {
+        delete cart[id];
+      }
+
+      renderMenu();
+      updateCartUI();
     };
 
-    async function executeOrderCreation(grade, classNum, studentNum, orderItems, paymentMethod) {
+    // UI & ボタン状態の更新
+    function updateCartUI() {
+      const totalPriceEl = document.getElementById('totalPrice');
+      const submitBtn = document.getElementById('submitOrderBtn');
+
+      const total = Object.values(cart).reduce((sum, item) => sum + (item.price * item.count), 0);
+      const totalCount = Object.values(cart).reduce((sum, item) => sum + item.count, 0);
+
+      totalPriceEl.innerText = `¥${total.toLocaleString()}`;
+
+      if (!isStoreOpen) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "営業時間外";
+        submitBtn.className = "flex-1 bg-gray-300 text-gray-500 font-bold py-3 px-4 rounded-xl text-sm cursor-not-allowed";
+      } else if (totalCount === 0) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "商品を選択してください";
+        submitBtn.className = "flex-1 bg-gray-300 text-gray-500 font-bold py-3 px-4 rounded-xl text-sm cursor-not-allowed";
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.innerText = `注文を確定する (${totalCount}点)`;
+        submitBtn.className = "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-sm transition shadow-md";
+      }
+    }
+
+    // --- 3. 注文送信処理 ---
+    window.submitOrder = async () => {
+      if (!isStoreOpen) {
+        alert("申し訳ありません。ただいま営業時間外です。");
+        return;
+      }
+
+      const studentClass = document.getElementById('studentClass').value.trim();
+      const studentName = document.getElementById('studentName').value.trim();
+
+      if (!studentClass || !studentName) {
+        alert("「組 / 席番号」と「お名前」を入力してください。");
+        return;
+      }
+
+      const cartItems = [];
+      Object.values(cart).forEach(item => {
+        for (let i = 0; i < item.count; i++) {
+          cartItems.push({ name: item.name, price: item.price });
+        }
+      });
+
+      if (cartItems.length === 0) return;
+
+      const submitBtn = document.getElementById('submitOrderBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerText = "送信中...";
+
       try {
-        const gradePrefixMap = { '1': 'A', '2': 'B', '3': 'C' };
-        const prefix = gradePrefixMap[grade] || 'A';
+        // カウンターのアトミックインクリメント (連番採番)
         const counterRef = ref(db, 'orderCounter');
+        const countResult = await runTransaction(counterRef, (currentValue) => {
+          return (currentValue || 0) + 1;
+        });
 
-        const counterResult = await runTransaction(counterRef, (currentValue) => (currentValue || 0) + 1);
-        const nextNum = counterResult.snapshot.val();
-        const formattedNum = String(nextNum).padStart(3, '0');
-        const orderNum = `${prefix}-${formattedNum}`;
+        const num = countResult.snapshot.val();
 
-        const newOrder = {
-          orderNumber: orderNum,
-          studentInfo: `${grade}年${classNum}組${studentNum}番`,
-          items: orderItems,
-          paymentMethod: paymentMethod,
+        // 学年に応じた接頭辞（1年: A-, 2年: B-, 3年: C-）を設定
+        let prefix = "A-";
+        const gradeMatch = studentClass.match(/[1-3１-３]/);
+        if (gradeMatch) {
+          const grade = gradeMatch[0];
+          if (grade === "2" || grade === "２") prefix = "B-";
+          if (grade === "3" || grade === "３") prefix = "C-";
+        }
+
+        const formattedOrderNumber = `${prefix}#${String(num).padStart(3, '0')}`;
+
+        // 注文データの保存
+        const newOrderRef = push(ref(db, 'orders'));
+        const orderData = {
+          orderNumber: formattedOrderNumber,
+          studentInfo: `${studentClass} ${studentName}`,
           status: 'preparing',
+          items: cartItems,
+          paymentMethod: '現地決済',
           timestamp: Date.now()
         };
 
-        const newOrderRef = push(ref(db, 'orders'), newOrder);
-        myOrderIds.push(newOrderRef.key);
-        localStorage.setItem('firebase_student_order_ids', JSON.stringify(myOrderIds));
+        await set(newOrderRef, orderData);
 
-        cart = [];
+        // 状態のリセット＆アクティブ注文の保持
+        activeOrderId = newOrderRef.key;
+        localStorage.setItem('activeOrderId', activeOrderId);
+        cart = {};
+        renderMenu();
         updateCartUI();
-        paymentModal.classList.add('hidden');
-        listenMyOrders();
-      } catch (err) {
-        console.error("注文エラー:", err);
-        alert("注文の作成に失敗しました。");
+        watchMyOrder(activeOrderId);
+
+        alert(`ご注文が完了しました！\n注文番号: ${formattedOrderNumber}`);
+
+      } catch (error) {
+        alert("注文の送信に失敗しました: " + error.message);
+        updateCartUI();
       }
-    }
+    };
 
-    function checkPendingPayPayOrder() {
-      const pendingData = sessionStorage.getItem('pending_paypay_order');
-      if (pendingData) {
-        const pendingOrder = JSON.parse(pendingData);
-        sessionStorage.removeItem('pending_paypay_order');
-        executeOrderCreation(
-          pendingOrder.grade,
-          pendingOrder.class,
-          pendingOrder.number,
-          pendingOrder.items,
-          pendingOrder.paymentMethod
-        );
-      }
-    }
+    // --- 4. 自分の注文状態の監視 ---
+    function watchMyOrder(orderId) {
+      if (!orderId) return;
 
-    function listenMyOrders() {
-      if (myOrderIds.length === 0) return;
-      onValue(ref(db, 'orders'), (snapshot) => {
-        const allOrders = snapshot.val() || {};
-        const container = document.getElementById('activeOrdersContainer');
-        container.innerHTML = '';
+      onValue(ref(db, `orders/${orderId}`), (snapshot) => {
+        const order = snapshot.val();
+        const container = document.getElementById('myOrderStatus');
 
-        myOrderIds.forEach(id => {
-          const order = allOrders[id];
-          if (order && order.status !== 'completed') {
-            const isReady = order.status === 'ready';
-            const card = document.createElement('div');
-            card.className = `rounded-2xl p-6 text-center border shadow-lg ${isReady ? 'bg-green-50 border-green-400 text-green-900 animate-pulse-fast' : 'bg-white border-blue-200'}`;
-            card.innerHTML = `
-              <div class="flex justify-between text-xs text-gray-500 mb-1">
-                <span>注文者：${order.studentInfo}</span>
-                <span class="font-bold text-gray-700">${order.paymentMethod || '未選択'}決済</span>
-              </div>
-              <h3 class="text-xl font-bold mb-3 ${isReady ? 'text-green-700' : 'text-blue-600'}">
-                ${isReady ? '🎉 料理の準備ができました！' : '⏳ 調理中です...'}
-              </h3>
-              <div class="inline-block bg-white px-6 py-3 rounded-2xl shadow-inner mb-2 border">
-                <span class="text-xs text-gray-400 block">受取番号</span>
-                <span class="text-5xl font-black ${isReady ? 'text-green-600' : 'text-gray-800'}">${order.orderNumber}</span>
-              </div>
-              <div class="text-xs text-gray-600 mt-2">
-                ${(order.items || []).map(i => `<div>${i.name} (¥${i.price})</div>`).join('')}
-              </div>
-            `;
-            container.appendChild(card);
-          }
-        });
+        if (!order) {
+          container.classList.add('hidden');
+          localStorage.removeItem('activeOrderId');
+          return;
+        }
+
+        container.classList.remove('hidden');
+        document.getElementById('myOrderNumber').innerText = order.orderNumber;
+
+        const badge = document.getElementById('myStatusBadge');
+        const desc = document.getElementById('myStatusDesc');
+
+        if (order.status === 'preparing') {
+          badge.innerText = "🍳 調理中...";
+          badge.className = "inline-block px-4 py-1.5 rounded-full text-sm font-bold bg-orange-100 text-orange-800";
+          desc.innerText = "学食スタッフが準備しています。しばらくお待ちください。";
+        } else if (order.status === 'ready') {
+          badge.innerText = "🔔 出来上がりました！受け取ってください";
+          badge.className = "inline-block px-4 py-1.5 rounded-full text-sm font-bold bg-green-500 text-white animate-bounce";
+          desc.innerText = "カウンターで画面の注文番号を提示してください。";
+        } else if (order.status === 'completed') {
+          badge.innerText = "✅ 提供完了";
+          badge.className = "inline-block px-4 py-1.5 rounded-full text-sm font-bold bg-gray-200 text-gray-700";
+          desc.innerText = "ありがとうございました！";
+          setTimeout(() => {
+            container.classList.add('hidden');
+            localStorage.removeItem('activeOrderId');
+          }, 5000);
+        }
       });
     }
 
-    checkPendingPayPayOrder();
-    listenMyOrders();
+    // 初期化時の注文追跡
+    if (activeOrderId) {
+      watchMyOrder(activeOrderId);
+    }
   </script>
 </body>
 </html>
